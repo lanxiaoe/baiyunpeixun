@@ -12,6 +12,14 @@ export async function onRequest(context) {
       const { userName, signatureImage } = await request.json();
       if (!userName || !signatureImage) return new Response("Missing fields", { status: 400 });
 
+      const templateMeta = await env.DB.get(`template:meta:${templateId}`);
+      if (!templateMeta) {
+        return new Response(JSON.stringify({ error: "模板不存在或已被删除" }), { 
+          status: 404, 
+          headers: { "Content-Type": "application/json" } 
+        });
+      }
+
       const signId = crypto.randomUUID().slice(0, 8);
       const key = `sign:data:${templateId}:${userName}_${signId}`;
 

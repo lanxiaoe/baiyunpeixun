@@ -4,6 +4,27 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const templateId = url.searchParams.get("templateId");
 
+  // --- 公开验证模板是否存在 (GET with type=exists) ---
+  if (request.method === "GET" && url.searchParams.get("type") === "exists") {
+    if (!templateId) return new Response("Missing templateId", { status: 400 });
+    try {
+      const meta = await env.DB.get(`template:meta:${templateId}`);
+      if (!meta) return new Response(JSON.stringify({ exists: false }), { 
+        status: 200, 
+        headers: { "Content-Type": "application/json" } 
+      });
+      return new Response(JSON.stringify({ exists: true }), { 
+        status: 200, 
+        headers: { "Content-Type": "application/json" } 
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ exists: false }), { 
+        status: 200, 
+        headers: { "Content-Type": "application/json" } 
+      });
+    }
+  }
+
   // 🔒 统一安全验证
   const adminPassword = request.headers.get("X-Admin-Password");
   if (!adminPassword || adminPassword !== env.ADMIN_PASSWORD) {

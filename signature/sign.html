@@ -130,29 +130,60 @@
 </div>
 
 <div class="container">
-  <a href="../index.html" class="btn-home">← 返回首页</a>
+  
   <h2>📝 在线文书签署</h2>
   
-  <div class="form-group">
-    <label>请输入您的真实姓名</label>
-    <input type="text" id="username-input" placeholder="姓名将作为已签署的文件名">
+  <div id="error-message" style="display:none; color:#e53e3e; text-align:center; padding:20px; background:#fff5f5; border-radius:4px; margin-bottom:20px;">
+    ⚠️ 该签署链接已失效或不存在
   </div>
   
-  <div class="form-group">
-    <label>请在下方虚线框内手写签名</label>
-    <div class="hint">💡 提示：使用鼠标或触摸屏在下方区域书写您的签名</div>
-    <canvas id="signature-pad"></canvas>
-  </div>
-  
-  <div class="btn-group">
-    <button id="clear-btn">重写</button>
-    <button id="submit-btn">确认提交签名</button>
+  <div id="sign-form">
+    <div class="form-group">
+      <label>请输入您的真实姓名</label>
+      <input type="text" id="username-input" placeholder="姓名将作为已签署的文件名">
+    </div>
+    
+    <div class="form-group">
+      <label>请在下方虚线框内手写签名</label>
+      <div class="hint">💡 提示：使用鼠标或触摸屏在下方区域书写您的签名</div>
+      <canvas id="signature-pad"></canvas>
+    </div>
+    
+    <div class="btn-group">
+      <button id="clear-btn">重写</button>
+      <button id="submit-btn">确认提交签名</button>
+    </div>
   </div>
 </div>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const templateId = urlParams.get('templateId');
+
+    async function validateTemplate() {
+      if (!templateId) {
+        showError('缺少模板ID');
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/template?templateId=${templateId}&type=exists`);
+        const data = await response.json();
+        if (!data.exists) {
+          showError('该签署链接已失效或不存在');
+        }
+      } catch (e) {
+        showError('网络连接失败，请稍后重试');
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('error-message').textContent = '⚠️ ' + msg;
+      document.getElementById('error-message').style.display = 'block';
+      document.getElementById('sign-form').style.display = 'none';
+    }
+
+    validateTemplate();
 
     const canvas = document.getElementById('signature-pad');
     const ctx = canvas.getContext('2d');
@@ -269,6 +300,9 @@
         alert("签署成功！您可以关闭当前窗口。");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         document.getElementById('username-input').value = '';
+      } else if (response.status === 404) {
+        alert("该签署链接已失效或不存在");
+        showError('该签署链接已失效或不存在');
       } else {
         alert("提交失败，请重试");
       }
