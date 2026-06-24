@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量档案生成系统</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pizzip/3.1.4/pizzip.min.js"></script>
+    <script>
+        if (typeof PizZip === 'undefined') {
+            document.write('<script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.min.js"><\/script>');
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
+    <script>
+        if (typeof docxtemplater === 'undefined') {
+            document.write('<script src="https://unpkg.com/docxtemplater@3.37.11/build/docxtemplater.js"><\/script>');
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater-image-module-free-browserify@1.1.2/build/imagemodule.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        if (typeof XLSX === 'undefined') {
+            document.write('<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+        if (typeof saveAs === 'undefined') {
+            document.write('<script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"><\/script>');
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .env-warning {
+            display: none;
+            width: 100%;
+            background-color: #fffaf0;
+            border-bottom: 1px solid #feebc8;
+            color: #dd6b20;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 13px;
+            box-sizing: border-box;
+            font-weight: bold;
+        }
+        
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 100%;
+            width: 550px;
+            box-sizing: border-box;
+            margin: 20px 10px;
+        }
+        
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+            background-color: #fff;
+        }
+        
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        .btn-submit:hover { background-color: #2b6cb0; }
+        .btn-submit:disabled { background-color: #cbd5e0; cursor: not-allowed; }
+        
+        .tips {
+            background-color: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #2b6cb0;
+            line-height: 1.4;
+        }
+        
+        .template-info {
+            background-color: #e6fffa;
+            border-left: 4px solid #38a169;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #276749;
+            line-height: 1.4;
+        }
+        
+        .status-msg {
+            text-align: center;
+            font-size: 14px;
+            margin-top: 10px;
+            color: #4a5568;
+            font-weight: bold;
+            white-space: pre-wrap;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            min-height: 60px;
+        }
+        
+        .keyword { color: #e53e3e; font-weight: bold; }
+        
+        .counter-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            font-size: 13px;
+            color: #718096;
+        }
+        
+        .counter-badge {
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: #edf2f7;
+        }
+        .counter-badge.normal { color: #38a169; background: #e6fffa; }
+        .counter-badge.warning { color: #dd6b20; background: #fffaf0; }
+        
+        .btn-home {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #718096;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .btn-home:hover { background-color: #4a5568; }
+    </style>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const missingLibs = [];
+            if (typeof PizZip === 'undefined') missingLibs.push('PizZip');
+            if (typeof docxtemplater === 'undefined') missingLibs.push('docxtemplater');
+            if (typeof ImageModule === 'undefined') missingLibs.push('ImageModule');
+            if (typeof XLSX === 'undefined') missingLibs.push('XLSX');
+            if (typeof saveAs === 'undefined') missingLibs.push('FileSaver');
+            
+            if (missingLibs.length > 0) {
+                alert("错误：以下依赖库加载失败，请检查网络连接：\n" + missingLibs.join('\n'));
+            } else {
+                console.log("所有依赖库加载成功");
+            }
+            
+            // 检测微信/QQ环境
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.match(/MicroMessenger/i) == "micromessenger" || ua.match(/QQ/i) == "qq") {
+                document.getElementById('env-warning').style.display = 'block';
+            }
+        });
+    </script>
+</head>
+
+<body>
+
+<div id="env-warning" class="env-warning">
+    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
+</div>
+
+<div class="container">
+    <a href="index.html" class="btn-home">← 返回首页</a>
+    <h2>批量档案生成系统</h2>
+    
+    <div class="template-info">
+        <strong>📄 当前模板：台账模板.docx（自动加载）</strong><br>
+        模板包含 <span class="keyword">{#数据列表}</span> 循环标签，每条记录后自动插入分页符
+    </div>
+    
+    <div class="tips">
+        <strong>📝 Word 占位符对照表：</strong><br>
+        • <strong>循环标签</strong>：<span class="keyword">{#数据列表}</span> ... <span class="keyword">{/数据列表}</span><br>
+        • <strong>照片占位符</strong>：<span class="keyword">{%相片}</span>（Excel 中"相片"列填写图片文件名）<br>
+        • <strong>其他字段</strong>：直接使用 <span class="keyword">{字段名}</span>，如 <span class="keyword">{姓名}</span>、<span class="keyword">{部门}</span>
+    </div>
+
+    <div class="form-group">
+        <label for="excelFile">1. 上传 Excel 数据源</label>
+        <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="updateExcelInfo()">
+        <div class="counter-container" id="excel-info" style="display:none;">
+            <span id="excel-hint">数据解析中...</span>
+            <span id="excel-badge" class="counter-badge normal">0 条记录</span>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="imageFiles">2. 批量选择照片</label>
+        <input type="file" id="imageFiles" accept="image/*" multiple onchange="updateImageInfo()">
+        <div class="counter-container" id="image-info" style="display:none;">
+            <span id="image-hint">照片加载中...</span>
+            <span id="image-badge" class="counter-badge normal">0 张照片</span>
+        </div>
+    </div>
+
+    <button id="generateBtn" class="btn-submit" onclick="mergeToSingleDocument()" disabled>合并到新文档并下载</button>
+    
+    <div id="status" class="status-msg">等待上传文件...</div>
+</div>
+
+<script>
+    const TEMPLATE_FILE = '模板/台账模板.docx';
+    const PAGE_BREAK_RUN = '<w:r><w:br w:type="page"/></w:r>';
+    const statusEl = document.getElementById('status');
+
+    function log(msg) { 
+        statusEl.innerText = msg;
+        if (msg.includes('成功') || msg.includes('导出')) {
+            statusEl.style.color = '#38a169';
+        } else if (msg.includes('错误') || msg.includes('失败')) {
+            statusEl.style.color = '#e53e3e';
+        } else {
+            statusEl.style.color = '#4a5568';
+        }
+    }
+
+    function updateExcelInfo() {
+        const file = document.getElementById('excelFile').files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, {raw: false, defval: ''});
+                
+                document.getElementById('excel-info').style.display = 'flex';
+                document.getElementById('excel-badge').innerText = `${json.length} 条记录`;
+                document.getElementById('excel-badge').className = json.length > 50 ? 'counter-badge warning' : 'counter-badge normal';
+                document.getElementById('excel-hint').innerText = `已识别 ${Object.keys(json[0] || {}).length} 个字段`;
+                
+                checkReadyState();
+            } catch (e) {
+                document.getElementById('excel-hint').innerText = 'Excel 解析失败';
+                document.getElementById('excel-badge').className = 'counter-badge warning';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function updateImageInfo() {
+        const files = document.getElementById('imageFiles').files;
+        if (files.length === 0) return;
+        
+        document.getElementById('image-info').style.display = 'flex';
+        document.getElementById('image-badge').innerText = `${files.length} 张照片`;
+        document.getElementById('image-badge').className = files.length > 50 ? 'counter-badge warning' : 'counter-badge normal';
+        document.getElementById('image-hint').innerText = '照片已就绪';
+        
+        checkReadyState();
+    }
+
+    function checkReadyState() {
+        const excelFile = document.getElementById('excelFile').files[0];
+        const imageFiles = document.getElementById('imageFiles').files;
+        const btn = document.getElementById('generateBtn');
+        
+        if (excelFile) {
+            btn.disabled = false;
+            log('文件已就绪，点击按钮开始生成');
+        } else {
+            btn.disabled = true;
+            log('等待上传 Excel 数据源...');
+        }
+    }
+
+    async function mergeToSingleDocument() {
+        const excelInput = document.getElementById('excelFile').files[0];
+        const imageInputs = document.getElementById('imageFiles').files;
+
+        if (!excelInput) {
+            alert("请先上传 Excel 数据源！");
+            return;
+        }
+
+        document.getElementById('generateBtn').disabled = true;
+        log("正在加载本地模板...");
+
+        try {
+            let templateBuffer;
+            try {
+                const response = await fetch(TEMPLATE_FILE);
+                if (!response.ok) {
+                    throw new Error(`无法加载模板文件: ${TEMPLATE_FILE}`);
+                }
+                templateBuffer = await response.arrayBuffer();
+                log("模板加载成功，正在解析数据...");
+            } catch (e) {
+                log("❌ 模板加载失败: " + e.message);
+                log("提示：请使用 HTTP 服务器访问此页面");
+                document.getElementById('generateBtn').disabled = false;
+                return;
+            }
+
+            const excelData = await readExcel(excelInput);
+            log(`成功读取 ${excelData.length} 条记录，正在处理图片...`);
+            
+            const imageFileMap = {};
+            for (let i = 0; i < imageInputs.length; i++) {
+                imageFileMap[imageInputs[i].name] = imageInputs[i];
+            }
+
+            const imageBufferMap = {};
+            for (let i = 0; i < excelData.length; i++) {
+                const photoName = excelData[i]["相片"];
+                if (photoName && imageFileMap[photoName] && !imageBufferMap[photoName]) {
+                    imageBufferMap[photoName] = await readFileAsArrayBuffer(imageFileMap[photoName]);
+                }
+            }
+
+            log("正在初始化文档引擎...");
+            const zip = new PizZip(templateBuffer);
+
+            const imageOptions = {
+                centered: false,
+                fileType: "docx",
+                getImage: function(tagValue) {
+                    if (imageBufferMap[tagValue]) {
+                        return imageBufferMap[tagValue];
+                    }
+                    console.warn(`未找到图片: ${tagValue}`);
+                    return null;
+                },
+                getSize: function(img, tagValue) {
+                    return [160, 200];
+                }
+            };
+
+            const imageModule = new ImageModule(imageOptions);
+            const doc = new docxtemplater(zip, {
+                paragraphLoop: true,
+                linebreaks: true,
+                modules: [imageModule]
+            });
+
+            log("正在生成文档（数据量大时请耐心等待）...");
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            doc.render({ "数据列表": excelData });
+
+            log("正在插入分页符并优化文档...");
+            const outputZip = doc.getZip();
+            let outputXml = outputZip.file("word/document.xml").asText();
+            
+            const tableCount = (outputXml.match(/<\/w:tbl>/g) || []).length;
+            
+            if (tableCount > 1) {
+                let tableIndex = 0;
+                outputXml = outputXml.replace(/<\/w:tbl>/g, function(match) {
+                    tableIndex++;
+                    if (tableIndex < tableCount) {
+                        return match + '<w:p>' + PAGE_BREAK_RUN + '</w:p>';
+                    }
+                    return match;
+                });
+            }
+            
+            outputZip.file("word/document.xml", outputXml);
+
+            log("正在打包压缩...");
+            const out = outputZip.generate({
+                type: "blob",
+                mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            });
+
+            const fileName = `批量档案_${excelData.length}人.docx`;
+            
+            try {
+                saveAs(out, fileName);
+                log("🎉 导出成功！文档已开始下载");
+            } catch (downloadError) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(out);
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                log("⚠️ 已尝试备用下载方式");
+            }
+
+        } catch (error) {
+            console.error(error);
+            log("❌ 发生错误: " + error.message);
+            alert("系统异常: " + error.message);
+        } finally {
+            setTimeout(() => { checkReadyState(); }, 2000);
+        }
+    }
+
+    function readExcel(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, {raw: false, defval: ''});
+                resolve(json);
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function readFileAsArrayBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+</script>
+
+</body>
+</html>

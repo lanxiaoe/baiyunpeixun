@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能台账系统</title>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .env-warning {
+            display: none;
+            width: 100%;
+            background-color: #fffaf0;
+            border-bottom: 1px solid #feebc8;
+            color: #dd6b20;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 13px;
+            box-sizing: border-box;
+            font-weight: bold;
+        }
+        
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 100%;
+            width: 550px;
+            box-sizing: border-box;
+            margin: 40px 10px;
+        }
+        
+        h1 {
+            margin-top: 0;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        
+        .nav-card {
+            display: block;
+            background: #f8f9fa;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .nav-card:hover {
+            background: #ebf8ff;
+            border-color: #3182ce;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.15);
+        }
+        
+        .nav-card-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .nav-card-desc {
+            font-size: 13px;
+            color: #718096;
+            line-height: 1.5;
+        }
+        
+        .nav-card-icon {
+            font-size: 24px;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
+        .nav-card-tag {
+            display: inline-block;
+            background: #e6fffa;
+            color: #38a169;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .nav-card-tag.blue {
+            background: #ebf8ff;
+            color: #3182ce;
+        }
+        
+        .nav-card-tag.purple {
+            background: #f3e8ff;
+            color: #805ad5;
+        }
+        
+        .footer {
+            text-align: center;
+            color: #a0aec0;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+    </style>
+    
+    <script>
+        window.onload = function() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.match(/MicroMessenger/i) == "micromessenger" || ua.match(/QQ/i) == "qq") {
+                document.getElementById('env-warning').style.display = 'block';
+            }
+        };
+    </script>
+</head>
+
+<body>
+
+<div id="env-warning" class="env-warning">
+    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
+</div>
+
+<div class="container">
+    <h1>智能台账系统</h1>
+    <p class="subtitle">高效、便捷的文档批量生成工具</p>
+    
+    <a href="px_tz.html" class="nav-card">
+        <div class="nav-card-title">
+            <span class="nav-card-icon">📝</span>
+            智能台账填充生成系统
+        </div>
+        <div class="nav-card-desc">
+            根据岗位、日期和姓名列表，自动填充培训记录模板。支持姓名自动清洗去重，最多 36 人。
+        </div>
+        <span class="nav-card-tag blue">培训记录</span>
+    </a>
+    
+    <a href="px_da.html" class="nav-card">
+        <div class="nav-card-title">
+            <span class="nav-card-icon">📷</span>
+            培训档案批量生成系统
+        </div>
+        <div class="nav-card-desc">
+            上传 Excel 数据源和照片，批量生成带图片的个人档案文档。每条记录自动分页。
+        </div>
+        <span class="nav-card-tag">档案生成</span>
+    </a>
+    
+    <a href="px_jlc.html" class="nav-card">
+        <div class="nav-card-title">
+            <span class="nav-card-icon">📊</span>
+            培训记录册生成工具
+        </div>
+        <div class="nav-card-desc">
+            上传数据源（XLSX格式），自动为每条记录生成独立工作表。按姓名命名，自动排序培训记录。
+        </div>
+        <span class="nav-card-tag purple">Excel 批处理</span>
+    </a>
+    
+    <a href="signature/admin.html" class="nav-card">
+        <div class="nav-card-title">
+            <span class="nav-card-icon">✏️</span>
+            PDF 在线签字管理系统
+        </div>
+        <div class="nav-card-desc">
+            上传 PDF 模板并框选签名位置，生成在线签署链接，支持多人远程签署和批量打包下载。
+        </div>
+        <span class="nav-card-tag" style="background:#fff5f5;color:#e53e3e;">签字管理</span>
+    </a>
+    
+    <div class="footer">
+        请确保通过 HTTP 服务器访问（如 python -m http.server 8080）
+    </div>
+</div>
+
+</body>
+</html>
