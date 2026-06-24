@@ -18,6 +18,9 @@
     
     .env-warning {
       display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 100%;
       background-color: #fffaf0;
       border-bottom: 1px solid #feebc8;
@@ -27,6 +30,7 @@
       font-size: 13px;
       box-sizing: border-box;
       font-weight: bold;
+      z-index: 99999;
     }
     
     .container {
@@ -209,6 +213,101 @@
       color: #a0aec0;
       padding: 20px;
     }
+
+    /* 登录面板样式 */
+    #login-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: #fff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .login-card h2 {
+      margin-bottom: 8px;
+      color: #2c3e50;
+    }
+
+    .login-card p {
+      color: #718096;
+      margin-bottom: 30px;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      box-sizing: border-box;
+    }
+
+    .login-input:focus {
+      outline: none;
+      border-color: #3182ce;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: #3182ce;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .login-btn:hover {
+      background: #2c5282;
+    }
+
+    .login-btn:disabled {
+      background: #a0aec0;
+      cursor: not-allowed;
+    }
+
+    .login-error {
+      color: #e53e3e;
+      font-size: 14px;
+      margin-top: 15px;
+      display: none;
+    }
+
+    .login-error.show {
+      display: block;
+    }
+
+    .login-remember {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      color: #718096;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .login-remember input {
+      margin-right: 8px;
+    }
+
+    #admin-panel {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -217,6 +316,23 @@
     ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
 </div>
 
+<!-- 登录面板 -->
+<div id="login-panel">
+  <div class="login-card">
+    <a href="../index.html" class="btn-home" style="float:left;">← 返回首页</a>
+    <h2>🔒 管理员登录</h2>
+    <p>请输入管理员密码以访问后台管理</p>
+    <input type="password" id="login-pwd" class="login-input" placeholder="请输入管理员密码">
+    <label class="login-remember">
+      <input type="checkbox" id="login-remember"> 记住密码
+    </label>
+    <button class="login-btn" onclick="login()">登 录</button>
+    <div id="login-error" class="login-error">密码错误，请重试</div>
+  </div>
+</div>
+
+<!-- 管理面板 -->
+<div id="admin-panel">
 <div class="container">
   <a href="../index.html" class="btn-home">← 返回首页</a>
   <h2>📋 PDF 签字管理后台</h2>
@@ -232,13 +348,7 @@
   </div>
 
   <div class="card">
-    <h3>🔒 设置/输入管理员密码</h3>
-    <input type="password" id="admin-pwd" style="width: 250px;" placeholder="请输入后台安全密码">
-    <button onclick="savePassword()" class="btn-sec">记住密码</button>
-  </div>
-
-  <div class="card">
-    <h3>📊 已上传模板及签署看板</h3>
+    <h3> 已上传模板及签署看板</h3>
     <button onclick="loadTemplateList()" class="btn-sec">🔄 刷新列表数据</button>
     <table>
       <thead>
@@ -275,6 +385,7 @@
     <div id="link-container" style="margin-top: 15px; font-weight: bold; color: #38a169;"></div>
   </div>
 </div>
+</div>
 
 <!-- 签署人员名单弹窗 -->
 <div id="signee-modal" class="modal">
@@ -298,18 +409,79 @@
     let totalPages = 1;
     let isDrawingBox = false;
     let startX = 0, startY = 0;
+    let adminPassword = '';
 
-    document.getElementById('admin-pwd').value = localStorage.getItem('admin_pwd') || '';
-    if (localStorage.getItem('admin_pwd')) loadTemplateList();
+    window.addEventListener('load', async () => {
+      const savedPwd = localStorage.getItem('admin_pwd');
+      if (savedPwd) {
+        document.getElementById('login-pwd').value = savedPwd;
+        document.getElementById('login-remember').checked = true;
+        await autoLogin(savedPwd);
+      }
 
-    function savePassword() {
-      localStorage.setItem('admin_pwd', document.getElementById('admin-pwd').value);
-      alert('密码已保存！');
+      document.getElementById('login-pwd').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') login();
+      });
+    });
+
+    async function autoLogin(pwd) {
+      try {
+        const res = await fetch('/api/template', {
+          headers: { 'X-Admin-Password': pwd }
+        });
+        if (res.status === 200) {
+          adminPassword = pwd;
+          showAdminPanel();
+        }
+      } catch (e) {
+        console.log('自动登录失败:', e);
+      }
+    }
+
+    async function login() {
+      const pwd = document.getElementById('login-pwd').value;
+      const remember = document.getElementById('login-remember').checked;
+      const errorDiv = document.getElementById('login-error');
+      
+      errorDiv.classList.remove('show');
+      
+      if (!pwd) {
+        errorDiv.textContent = '请输入密码';
+        errorDiv.classList.add('show');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/template', {
+          headers: { 'X-Admin-Password': pwd }
+        });
+        
+        if (res.status === 200) {
+          adminPassword = pwd;
+          if (remember) {
+            localStorage.setItem('admin_pwd', pwd);
+          } else {
+            localStorage.removeItem('admin_pwd');
+          }
+          showAdminPanel();
+        } else {
+          errorDiv.textContent = '密码错误，请重试';
+          errorDiv.classList.add('show');
+        }
+      } catch (e) {
+        errorDiv.textContent = '网络连接失败，请稍后重试';
+        errorDiv.classList.add('show');
+      }
+    }
+
+    function showAdminPanel() {
+      document.getElementById('login-panel').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
       loadTemplateList();
     }
 
     function getHeaders() {
-      return { 'X-Admin-Password': document.getElementById('admin-pwd').value };
+      return { 'X-Admin-Password': adminPassword };
     }
 
     async function loadTemplateList() {
@@ -317,7 +489,11 @@
       tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;">数据加载中...</td></tr>`;
       try {
         const res = await fetch('/api/template', { headers: getHeaders() });
-        if (res.status === 401) return tbody.innerHTML = `<tr><td colspan="5" style="color:#e53e3e;text-align:center;padding:20px;">密码验证失败，请重新输入密码！</td></tr>`;
+        if (res.status === 401) {
+          alert('会话已过期，请重新登录');
+          window.location.reload();
+          return;
+        }
         const data = await res.json();
         
         if (!data.templates || data.templates.length === 0) {
