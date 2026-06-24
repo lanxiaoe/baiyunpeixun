@@ -133,6 +133,82 @@
       font-size: 14px;
       margin-right: 10px;
     }
+
+    /* 弹窗样式 */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 25px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 15px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: #2c3e50;
+      font-size: 18px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #a0aec0;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+    }
+
+    .close-btn:hover {
+      color: #4a5568;
+    }
+
+    .signee-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .signee-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f7fafc;
+      color: #4a5568;
+    }
+
+    .signee-item:last-child {
+      border-bottom: none;
+    }
+
+    .signee-item:hover {
+      background-color: #f7fafc;
+    }
+
+    .empty-signees {
+      text-align: center;
+      color: #a0aec0;
+      padding: 20px;
+    }
   </style>
 </head>
 <body>
@@ -200,6 +276,17 @@
   </div>
 </div>
 
+<!-- 签署人员名单弹窗 -->
+<div id="signee-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>👥 已签署人员名单</h3>
+      <button class="close-btn" onclick="closeSigneeModal()">×</button>
+    </div>
+    <div id="signee-list" class="signee-list"></div>
+  </div>
+</div>
+
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
@@ -240,14 +327,17 @@
 
         tbody.innerHTML = '';
         data.templates.forEach(t => {
-          const badges = t.signees.map(name => `<span class="badge">${name}</span>`).join('') || '<span style="color:#a0aec0">暂无人签署</span>';
           const signUrl = `${window.location.origin}/signature/sign.html?templateId=${t.templateId}`;
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><code style="color:#4a5568;">${t.templateId}</code></td>
             <td><strong>${t.fileName}</strong></td>
             <td><b style="color:#38a169">${t.signCount}</b> 份</td>
-            <td>${badges}</td>
+            <td>
+              <button class="btn-sec" onclick="showSignees('${encodeURIComponent(JSON.stringify(t.signees))}')">
+                👥 查看名单 (${t.signCount})
+              </button>
+            </td>
             <td>
               <button onclick="copyToClipboard('${signUrl}')">📋 复制链接</button>
               <button class="btn-success" onclick="batchDownload('${t.templateId}')" ${t.signCount === 0 ? 'disabled' : ''}>📦 打包下载</button>
@@ -283,6 +373,34 @@
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text).then(() => alert('签署链接已复制！'));
     }
+
+    function showSignees(signeesJson) {
+      const signees = JSON.parse(decodeURIComponent(signeesJson));
+      const modal = document.getElementById('signee-modal');
+      const listContainer = document.getElementById('signee-list');
+      
+      if (!signees || signees.length === 0) {
+        listContainer.innerHTML = '<div class="empty-signees">暂无人签署</div>';
+      } else {
+        listContainer.innerHTML = signees.map(name => 
+          `<div class="signee-item">✓ ${name}</div>`
+        ).join('');
+      }
+      
+      modal.style.display = 'block';
+    }
+
+    function closeSigneeModal() {
+      document.getElementById('signee-modal').style.display = 'none';
+    }
+
+    // 点击弹窗外部关闭
+    window.onclick = function(event) {
+      const modal = document.getElementById('signee-modal');
+      if (event.target === modal) {
+        closeSigneeModal();
+      }
+    };
 
     document.getElementById('pdf-file').addEventListener('change', async (e) => {
       selectedFile = e.target.files[0];
