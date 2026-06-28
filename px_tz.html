@@ -8,139 +8,76 @@
     <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.49.0/build/docxtemplater.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     
+    <link rel="stylesheet" href="lib/base.css">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f5f7fa;
-            color: #333;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        /* 微信环境优雅提示条 */
-        .env-warning {
-            display: none;
-            width: 100%;
-            background-color: #fffaf0;
-            border-bottom: 1px solid #feebc8;
-            color: #dd6b20;
-            padding: 12px 20px;
-            text-align: center;
-            font-size: 13px;
-            box-sizing: border-box;
-            font-weight: bold;
-        }
-        .container {
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            max-width: 100%;
-            width: 550px;
-            box-sizing: border-box;
-            margin: 20px 10px;
-        }
-        h2 {
-            margin-top: 0;
-            color: #2c3e50;
-            text-align: center;
-            font-size: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: bold;
-            color: #4a5568;
-            font-size: 14px;
-        }
-        input[type="text"], input[type="date"], select, textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #cbd5e0;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-family: inherit;
-            font-size: 14px;
-            background-color: #fff;
-        }
+        .container { width: 550px; }
+        
         textarea {
             resize: vertical;
             min-height: 140px;
         }
-        /* 实时人数预览样式 */
+        
         .counter-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 6px;
             font-size: 13px;
-            color: #718096;
+            color: var(--gray-500);
         }
+        
         .counter-badge {
             font-weight: bold;
             padding: 2px 6px;
             border-radius: 10px;
-            background: #edf2f7;
+            background: var(--gray-200);
         }
-        .counter-badge.normal { color: #38a169; background: #e6fffa; }
-        .counter-badge.warning { color: #dd6b20; background: #fffaf0; }
-        .counter-badge.danger { color: #e53e3e; background: #fff5f5; }
-
-        .btn-submit {
-            width: 100%;
-            padding: 12px;
-            background-color: #3182ce;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 10px;
-        }
-        .btn-submit:hover { background-color: #2b6cb0; }
-        .btn-submit:disabled { background-color: #cbd5e0; cursor: not-allowed; }
         
+        .counter-badge.normal { color: var(--success-color); background: #e6fffa; }
+        .counter-badge.warning { color: var(--warning-color); background: var(--warning-bg); }
+        .counter-badge.danger { color: var(--danger-color); background: #fff5f5; }
+
         .tips {
             background-color: #ebf8ff;
-            border-left: 4px solid #3182ce;
+            border-left: 4px solid var(--primary-color);
             padding: 10px;
             margin-bottom: 15px;
             font-size: 13px;
             color: #2b6cb0;
             line-height: 1.4;
         }
+        
+        .keyword { color: var(--danger-color); font-weight: bold; }
+        
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 10px;
+        }
+        
+        .btn-submit:hover:not(:disabled) { background-color: var(--primary-hover); }
+        .btn-submit:disabled { background-color: var(--gray-300); cursor: not-allowed; }
+        
         .status-msg {
             text-align: center;
             font-size: 14px;
             margin-top: 10px;
-            color: #4a5568;
+            color: var(--gray-600);
             font-weight: bold;
         }
-        .keyword { color: #e53e3e; font-weight: bold; }
-        
-        .btn-home {
-            display: inline-block;
-            padding: 6px 12px;
-            background-color: #718096;
-            color: white;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 13px;
-            margin-bottom: 10px;
-        }
-        .btn-home:hover { background-color: #4a5568; }
     </style>
 </head>
 <body>
 
 <div id="env-warning" class="env-warning">
-    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择“在浏览器中打开”。
+    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
 </div>
 
 <div class="container">
@@ -191,17 +128,13 @@
     <div id="status" class="status-msg"></div>
 </div>
 
+<script src="lib/base.js"></script>
 <script>
     const MAX_PLACEHOLDERS = 36; // 最大支持 36 人
 
-    // 页面加载完毕后检测环境
-    window.onload = function() {
-        const ua = navigator.userAgent.toLowerCase();
-        if (ua.match(/MicroMessenger/i) == "micromessenger" || ua.match(/QQ/i) == "qq") {
-            document.getElementById('env-warning').style.display = 'block';
-        }
+    window.addEventListener('load', () => {
         updateUserCounter(); // 初始化计数器
-    };
+    });
 
     // 姓名清洗、去噪、去重算法
     function cleanAndGetNames() {
@@ -267,8 +200,8 @@
         const btn = document.getElementById('submit-btn');
         const statusDiv = document.getElementById('status');
 
-        if (!jobValue) { alert('请填写岗位名称！'); return; }
-        if (!dateValue) { alert('请选择日期！'); return; }
+        if (!jobValue) { App.showMessage('请填写岗位名称！', 'warning'); return; }
+        if (!dateValue) { App.showMessage('请选择日期！', 'warning'); return; }
 
         const namesArray = cleanAndGetNames();
         if (namesArray.length === 0) return;
@@ -283,7 +216,7 @@
 
         // 🧠 3. 新增核心：计算第 3 天（后天）
         const thirdDate = new Date(currentDate);
-        thirdDate.setDate(currentDate.getDate() + 2); // 当前日期加2天
+        thirdDate.setDate(currentDate.getDate() + 2);
 
         // 4. 构建渲染数据集
         const renderData = {
@@ -315,13 +248,13 @@
         });
 
         btn.disabled = true;
-        statusDiv.style.color = '#4a5568';
+        statusDiv.style.color = 'var(--gray-600)';
         statusDiv.innerText = `正在调取【${templateName}】并生成中...`;
 
         try {
             const response = await fetch(templateFile);
             if (!response.ok) {
-                throw new Error(`未能在云端找到 [${templateFile}]，请检查 Cloudflare 上的文件名。`);
+                throw new Error(`未能在云端找到 [${templateFile}]，请检查模板文件是否存在。`);
             }
             const arrayBuffer = await response.arrayBuffer();
 
@@ -343,25 +276,19 @@
             
             try {
                 saveAs(out, `${fileName}.docx`);
-                statusDiv.style.color = '#38a169';
+                statusDiv.style.color = 'var(--success-color)';
                 statusDiv.innerText = `🎉 成功生成！已开始下载。`;
             } catch (downloadError) {
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(out);
-                link.download = `${fileName}.docx`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                statusDiv.style.color = '#dd6b20';
+                App.downloadFile(out, `${fileName}.docx`);
+                statusDiv.style.color = 'var(--warning-color)';
                 statusDiv.innerText = `⚠️ 已尝试唤起备用下载，如无反应请复制链接在外部浏览器打开。`;
             }
 
         } catch (error) {
             console.error(error);
-            statusDiv.style.color = '#e53e3e';
+            statusDiv.style.color = 'var(--danger-color)';
             statusDiv.innerText = '生成失败，请检查配置。';
-            alert('系统异常: ' + error.message);
+            App.showMessage('系统异常: ' + error.message, 'error');
         } finally {
             setTimeout(() => { updateUserCounter(); }, 1500);
         }

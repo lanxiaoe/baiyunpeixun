@@ -7,213 +7,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <link rel="stylesheet" href="../lib/base.css">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f5f7fa;
-      color: #333;
-      padding: 0;
-      margin: 0;
-    }
+    .container { width: 900px; margin: 30px auto; }
+    h2 { font-size: 22px; }
     
-    .env-warning {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background-color: #fffaf0;
-      border-bottom: 1px solid #feebc8;
-      color: #dd6b20;
-      padding: 12px 20px;
-      text-align: center;
-      font-size: 13px;
-      box-sizing: border-box;
-      font-weight: bold;
-      z-index: 99999;
-    }
-    
-    .container {
-      background: #ffffff;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 100%;
-      width: 900px;
-      box-sizing: border-box;
-      margin: 30px auto;
-    }
-
-    .btn-home {
-      display: inline-block;
-      padding: 6px 12px;
-      background-color: #718096;
-      color: white;
-      border-radius: 4px;
-      text-decoration: none;
-      font-size: 13px;
-      margin-bottom: 15px;
-    }
-    .btn-home:hover { background-color: #4a5568; }
-
-    h2 {
-      margin-top: 0;
-      color: #2c3e50;
-      font-size: 22px;
-      margin-bottom: 20px;
-    }
-
-    .card {
-      background: #f8f9fa;
-      border: 1px solid #e2e8f0;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-
-    .card h3 {
-      margin-top: 0;
-      color: #2c3e50;
-      font-size: 16px;
-      margin-bottom: 15px;
-    }
-
-    button {
-      padding: 8px 16px;
-      background: #3182ce;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-right: 8px;
-      font-size: 14px;
-      transition: background 0.2s;
-    }
-    button:hover { background: #2c5282; }
-    button:disabled { background: #a0aec0; cursor: not-allowed; }
-    
-    .btn-sec { background: #718096; }
-    .btn-sec:hover { background: #4a5568; }
-    .btn-success { background: #38a169; }
-    .btn-success:hover { background: #276749; }
-    .btn-danger { background: #e53e3e; }
-    .btn-danger:hover { background: #c53030; }
-    
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-    th { background-color: #f7fafc; color: #4a5568; font-weight: 600; }
-    tr:hover { background-color: #f7fafc; }
-    
-    .badge {
-      background: #ebf8ff;
-      color: #3182ce;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      margin-right: 5px;
-      display: inline-block;
-      margin-bottom: 4px;
-    }
-    
-    .pagination { margin: 15px 0; font-weight: bold; color: #4a5568; }
-
+    /* PDF 相关样式 */
+    .pagination { margin: 15px 0; font-weight: bold; color: var(--gray-600); }
     #pdf-wrapper { margin-top: 15px; }
-    #pdf-container { position: relative; border: 2px dashed #cbd5e0; display: inline-block; cursor: crosshair; user-select: none; background: white; }
-    #marker { position: absolute; border: 2px dashed #e53e3e; background: rgba(229,62,62,0.1); display: none; pointer-events: none; }
-
-    #progress-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.7); display: none; z-index: 9999;
-      flex-direction: column; justify-content: center; align-items: center; color: white;
-    }
-    .progress-box { background: #2d3748; padding: 30px; border-radius: 8px; text-align: center; max-width: 400px; width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-    .progress-bar-bg { background: #4a5568; width: 100%; height: 8px; border-radius: 4px; margin: 15px 0; overflow: hidden; }
-    .progress-bar-fill { background: #38a169; width: 0%; height: 100%; transition: width 0.1s ease; }
-
-    input[type="password"], input[type="file"] {
-      padding: 8px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-      font-size: 14px;
-      margin-right: 10px;
-    }
-
-    /* 弹窗样式 */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 10000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.5);
-    }
-
-    .modal-content {
-      background-color: #fff;
-      margin: 10% auto;
-      padding: 25px;
-      border-radius: 8px;
-      width: 90%;
-      max-width: 500px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 15px;
-    }
-
-    .modal-header h3 {
-      margin: 0;
-      color: #2c3e50;
-      font-size: 18px;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #a0aec0;
-      cursor: pointer;
-      padding: 0;
-      margin: 0;
-    }
-
-    .close-btn:hover {
-      color: #4a5568;
-    }
-
-    .signee-list {
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .signee-item {
-      padding: 8px 12px;
-      border-bottom: 1px solid #f7fafc;
-      color: #4a5568;
-    }
-
-    .signee-item:last-child {
-      border-bottom: none;
-    }
-
-    .signee-item:hover {
-      background-color: #f7fafc;
-    }
-
-    .empty-signees {
-      text-align: center;
-      color: #a0aec0;
-      padding: 20px;
-    }
-
+    #pdf-container { position: relative; border: 2px dashed var(--gray-300); display: inline-block; cursor: crosshair; user-select: none; background: white; }
+    #marker { position: absolute; border: 2px dashed var(--danger-color); background: rgba(229,62,62,0.1); display: none; pointer-events: none; }
+    
     /* 登录面板样式 */
     #login-panel {
       display: flex;
@@ -228,86 +33,60 @@
       background: #fff;
       padding: 40px;
       border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      box-shadow: var(--shadow-lg);
       width: 100%;
       max-width: 400px;
       text-align: center;
     }
 
-    .login-card h2 {
-      margin-bottom: 8px;
-      color: #2c3e50;
-    }
-
-    .login-card p {
-      color: #718096;
-      margin-bottom: 30px;
-    }
-
     .login-input {
       width: 100%;
       padding: 14px 16px;
-      border: 2px solid #e2e8f0;
+      border: 2px solid var(--gray-200);
       border-radius: 8px;
       font-size: 16px;
       margin-bottom: 20px;
-      box-sizing: border-box;
     }
 
-    .login-input:focus {
-      outline: none;
-      border-color: #3182ce;
-    }
+    .login-input:focus { border-color: var(--primary-color); outline: none; }
 
     .login-btn {
       width: 100%;
       padding: 14px;
-      background: #3182ce;
+      background: var(--primary-color);
       color: white;
       border: none;
       border-radius: 8px;
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
-      margin-bottom: 10px;
     }
 
-    .login-btn:hover {
-      background: #2c5282;
-    }
+    .login-btn:hover { background: var(--primary-hover); }
+    .login-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
 
-    .login-btn:disabled {
-      background: #a0aec0;
-      cursor: not-allowed;
-    }
-
-    .login-error {
-      color: #e53e3e;
-      font-size: 14px;
-      margin-top: 15px;
-      display: none;
-    }
-
-    .login-error.show {
-      display: block;
-    }
+    .login-error { color: var(--danger-color); font-size: 14px; margin-top: 15px; display: none; }
+    .login-error.show { display: block; }
 
     .login-remember {
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      color: #718096;
+      color: var(--gray-500);
       font-size: 14px;
       margin-bottom: 20px;
     }
 
-    .login-remember input {
-      margin-right: 8px;
-    }
+    .login-remember input { margin-right: 8px; }
 
-    #admin-panel {
-      display: none;
-    }
+    #admin-panel { display: none; }
+
+    /* 签署人员列表 */
+    .signee-list { max-height: 300px; overflow-y: auto; }
+    .signee-item { padding: 8px 12px; border-bottom: 1px solid var(--gray-50); color: var(--gray-600); }
+    .signee-item:last-child { border-bottom: none; }
+    .signee-item:hover { background-color: var(--gray-50); }
+    .empty-signees { text-align: center; color: var(--gray-400); padding: 20px; }
   </style>
 </head>
 <body>
@@ -337,7 +116,7 @@
   <a href="../index.html" class="btn-home">← 返回首页</a>
   <h2>📋 PDF 签字管理后台</h2>
 
-  <div id="progress-overlay">
+  <div id="progress-overlay" class="progress-overlay">
     <div class="progress-box">
       <h3 id="progress-title" style="margin-top:0;">正在批量处理 PDF</h3>
       <div class="progress-bar-bg">
@@ -348,8 +127,8 @@
   </div>
 
   <div class="card">
-    <h3> 已上传模板及签署看板</h3>
-    <button onclick="loadTemplateList()" class="btn-sec">🔄 刷新列表数据</button>
+    <h3>📊 已上传模板及签署看板</h3>
+    <button onclick="loadTemplateList()" class="btn-secondary">🔄 刷新列表数据</button>
     <table>
       <thead>
         <tr>
@@ -366,23 +145,23 @@
 
   <div class="card">
     <h3>➕ 上传新 PDF 模板并框选签名处</h3>
-    <input type="file" id="pdf-file" accept="application/pdf">
+    <input type="file" id="pdf-file" accept="application/pdf" style="width: 300px;">
     
     <div id="pdf-wrapper" style="display:none;">
       <div class="pagination">
-        <button id="prev-page" class="btn-sec">◀ 上一页</button>
+        <button id="prev-page" class="btn-secondary">◀ 上一页</button>
         <span id="page-num-info">第 1 页 / 共 1 页</span>
-        <button id="next-page" class="btn-sec">下一页 ▶</button>
-        <span style="color: #718096; margin-left: 20px;">💡 提示：在下方 PDF 画面上 [按住左键拖拽] 框选出签名落款区域</span>
+        <button id="next-page" class="btn-secondary">下一页 ▶</button>
+        <span style="color: var(--gray-500); margin-left: 20px;">💡 提示：在下方 PDF 画面上 [按住左键拖拽] 框选出签名落款区域</span>
       </div>
       <div id="pdf-container">
         <div id="marker"></div>
         <canvas id="pdf-canvas"></canvas>
       </div>
       <br><br>
-      <button id="upload-btn" disabled>保存当前页面及标记并发布</button>
+      <button id="upload-btn" disabled class="btn-primary">保存当前页面及标记并发布</button>
     </div>
-    <div id="link-container" style="margin-top: 15px; font-weight: bold; color: #38a169;"></div>
+    <div id="link-container" style="margin-top: 15px; font-weight: bold; color: var(--success-color);"></div>
   </div>
 </div>
 </div>
@@ -398,7 +177,8 @@
   </div>
 </div>
 
-  <script>
+<script src="../lib/base.js"></script>
+<script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
     let selectedFile = null;
@@ -497,7 +277,7 @@
         const data = await res.json();
         
         if (!data.templates || data.templates.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="color:#a0aec0;text-align:center;padding:20px;">暂无上传文件</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" style="color:var(--gray-400);text-align:center;padding:20px;">暂无上传文件</td></tr>`;
           return;
         }
 
@@ -506,16 +286,16 @@
           const signUrl = `${window.location.origin}/signature/sign.html?templateId=${t.templateId}`;
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td><code style="color:#4a5568;">${t.templateId}</code></td>
+            <td><code style="color:var(--gray-600);">${t.templateId}</code></td>
             <td><strong>${t.fileName}</strong></td>
-            <td><b style="color:#38a169">${t.signCount}</b> 份</td>
+            <td><b style="color:var(--success-color);">${t.signCount}</b> 份</td>
             <td>
-              <button class="btn-sec" onclick="showSignees('${encodeURIComponent(JSON.stringify(t.signees))}')">
+              <button class="btn-secondary" onclick="showSignees('${encodeURIComponent(JSON.stringify(t.signees))}')">
                 👥 查看名单 (${t.signCount})
               </button>
             </td>
             <td>
-              <button onclick="copyToClipboard('${signUrl}')">📋 复制链接</button>
+              <button onclick="App.copyToClipboard('${signUrl}')">📋 复制链接</button>
               <button class="btn-success" onclick="batchDownload('${t.templateId}')" ${t.signCount === 0 ? 'disabled' : ''}>📦 打包下载</button>
               <button class="btn-danger" onclick="deleteTemplate('${t.templateId}')">🗑️ 删除模板</button>
             </td>
@@ -523,7 +303,7 @@
           tbody.appendChild(tr);
         });
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="color:#e53e3e;text-align:center;padding:20px;">错误: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger-color);text-align:center;padding:20px;">错误: ${err.message}</td></tr>`;
       }
     }
 
@@ -535,19 +315,15 @@
           headers: getHeaders()
         });
         if (res.ok) {
-          alert('删除成功，底层关联签名记录已同步清理完毕！');
+          App.showMessage('删除成功，底层关联签名记录已同步清理完毕！', 'success');
           loadTemplateList();
         } else {
           const errData = await res.json();
-          alert('删除失败: ' + (errData.error || '未知原因'));
+          App.showMessage('删除失败: ' + (errData.error || '未知原因'), 'error');
         }
       } catch(e) {
-        alert('网络请求失败: ' + e.message);
+        App.showMessage('网络请求失败: ' + e.message, 'error');
       }
-    }
-
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => alert('签署链接已复制！'));
     }
 
     function showSignees(signeesJson) {
@@ -570,7 +346,6 @@
       document.getElementById('signee-modal').style.display = 'none';
     }
 
-    // 点击弹窗外部关闭
     window.onclick = function(event) {
       const modal = document.getElementById('signee-modal');
       if (event.target === modal) {
@@ -651,7 +426,7 @@
       const bHeight = parseFloat(marker.style.height);
 
       if (bWidth < 15 || bHeight < 15) {
-        alert('框选区域太小，请重新清晰框选目标范围！');
+        App.showMessage('框选区域太小，请重新清晰框选目标范围！', 'warning');
         marker.style.display = 'none';
         return;
       }
@@ -684,10 +459,10 @@
       });
       if (res.ok) {
         const signUrl = `${window.location.origin}/signature/sign.html?templateId=${templateId}`;
-        document.getElementById('link-container').innerHTML = `发布成功！签署链接：<br><a href="${signUrl}" target="_blank" style="color:#3182ce;">${signUrl}</a>`;
+        document.getElementById('link-container').innerHTML = `发布成功！签署链接：<br><a href="${signUrl}" target="_blank" style="color:var(--primary-color);">${signUrl}</a>`;
         loadTemplateList();
       } else {
-        alert("模板创建失败，请核对密码");
+        App.showMessage("模板创建失败，请核对密码", 'error');
       }
     });
 
@@ -723,7 +498,7 @@
         for (let i = 0; i < total; i += BATCH_SIZE) {
           const currentBatch = signatures.slice(i, i + BATCH_SIZE);
           
-          await Promise.all(currentBatch.map(async (sign, index) => {
+          await Promise.all(currentBatch.map(async (sign) => {
             const pdfDoc = await PDFLib.PDFDocument.load(templateBytes.slice(0));
             const pages = pdfDoc.getPages();
             const targetPage = pages[coordinate.page - 1];
@@ -769,17 +544,10 @@
         overlay.style.display = 'none';
 
       } catch (err) {
-        alert("打包发生错误: " + err.message);
+        App.showMessage("打包发生错误: " + err.message, 'error');
         overlay.style.display = 'none';
       }
     }
-
-    window.onload = function() {
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.match(/MicroMessenger/i) == "micromessenger" || ua.match(/QQ/i) == "qq") {
-        document.getElementById('env-warning').style.display = 'block';
-      }
-    };
-  </script>
+</script>
 </body>
 </html>

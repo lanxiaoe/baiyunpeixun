@@ -4,136 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>在线签名签署</title>
+  
+  <link rel="stylesheet" href="../lib/base.css">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f5f7fa;
-      color: #333;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-    
-    .env-warning {
-      display: none;
-      width: 100%;
-      background-color: #fffaf0;
-      border-bottom: 1px solid #feebc8;
-      color: #dd6b20;
-      padding: 12px 20px;
-      text-align: center;
-      font-size: 13px;
-      box-sizing: border-box;
-      font-weight: bold;
-    }
-    
-    .container {
-      background: #ffffff;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 100%;
-      width: 450px;
-      box-sizing: border-box;
-      margin: 40px 10px;
-    }
-
-    .btn-home {
-      display: inline-block;
-      padding: 6px 12px;
-      background-color: #718096;
-      color: white;
-      border-radius: 4px;
-      text-decoration: none;
-      font-size: 13px;
-      margin-bottom: 15px;
-    }
-    .btn-home:hover { background-color: #4a5568; }
-
-    h2 {
-      margin-top: 0;
-      color: #2c3e50;
-      font-size: 20px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    
-    .form-group {
-      margin-bottom: 20px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      color: #4a5568;
-      font-weight: 500;
-    }
-    
-    input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      box-sizing: border-box;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-    
     canvas { 
       display: block; 
       margin: 0 auto 20px auto; 
       width: 100%; 
       height: 200px; 
       box-sizing: border-box; 
-      border: 2px dashed #cbd5e0; 
-      border-radius: 4px; 
+      border: 2px dashed var(--gray-300); 
+      border-radius: var(--border-radius-sm); 
       touch-action: none; 
       background: white;
     }
     
-    .btn-group {
-      display: flex;
-      gap: 10px;
-    }
+    #submit-btn { background: var(--primary-color); }
+    #submit-btn:hover { background: var(--primary-hover); }
     
-    button {
-      flex: 1;
-      padding: 12px;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      color: white;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.2s;
-    }
-    
-    #submit-btn { background: #3182ce; }
-    #submit-btn:hover { background: #2c5282; }
-    
-    #clear-btn { background: #a0aec0; }
-    #clear-btn:hover { background: #718096; }
-    
-    .hint {
-      color: #718096;
-      font-size: 13px;
-      margin-bottom: 10px;
-    }
+    #clear-btn { background: var(--gray-400); }
+    #clear-btn:hover { background: var(--gray-500); }
   </style>
 </head>
+
 <body>
 
 <div id="env-warning" class="env-warning">
     ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
 </div>
 
-<div class="container">
-  
+<div class="container container-narrow">
+  <a href="../index.html" class="btn-home">← 返回首页</a>
   <h2>📝 在线文书签署</h2>
   
-  <div id="error-message" style="display:none; color:#e53e3e; text-align:center; padding:20px; background:#fff5f5; border-radius:4px; margin-bottom:20px;">
+  <div id="error-message" class="error-message" style="display:none;">
     ⚠️ 该签署链接已失效或不存在
   </div>
   
@@ -156,9 +60,16 @@
   </div>
 </div>
 
-  <script>
+<script src="../lib/base.js"></script>
+<script>
     const urlParams = new URLSearchParams(window.location.search);
     const templateId = urlParams.get('templateId');
+
+    async function showError(msg) {
+      document.getElementById('error-message').textContent = '⚠️ ' + msg;
+      document.getElementById('error-message').style.display = 'block';
+      document.getElementById('sign-form').style.display = 'none';
+    }
 
     async function validateTemplate() {
       if (!templateId) {
@@ -177,143 +88,33 @@
       }
     }
 
-    function showError(msg) {
-      document.getElementById('error-message').textContent = '⚠️ ' + msg;
-      document.getElementById('error-message').style.display = 'block';
-      document.getElementById('sign-form').style.display = 'none';
-    }
-
     validateTemplate();
 
-    const canvas = document.getElementById('signature-pad');
-    const ctx = canvas.getContext('2d');
-    let isDrawing = false;
-
-    function initCanvasResolution() {
-      const rect = canvas.getBoundingClientRect();
-      const ratio = window.devicePixelRatio || 1;
-      
-      canvas.width = rect.width * ratio;
-      canvas.height = rect.height * ratio;
-      
-      ctx.resetTransform();
-      ctx.scale(ratio, ratio);
-      
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000000';
-    }
-
-    window.addEventListener('resize', initCanvasResolution);
-    setTimeout(initCanvasResolution, 300);
-
-    function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const cX = e.touches ? e.touches[0].clientX : e.clientX;
-      const cY = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: cX - rect.left, y: cY - rect.top };
-    }
-
-    function startDraw(e) { isDrawing = true; draw(e); }
-    function stopDraw() { isDrawing = false; ctx.beginPath(); }
-    function draw(e) {
-      if (!isDrawing) return;
-      const pos = getPos(e);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-    }
-
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDraw);
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
-    canvas.addEventListener('touchend', stopDraw);
+    const sig = Signature.initCanvas('signature-pad');
 
     document.getElementById('clear-btn').addEventListener('click', () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      sig.clear();
     });
-
-    function getOptimizedSignatureData() {
-      const w = canvas.width;
-      const h = canvas.height;
-      const imgData = ctx.getImageData(0, 0, w, h).data;
-
-      let minX = w, maxX = 0, minY = h, maxY = 0;
-      let hasPixels = false;
-
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const alpha = imgData[(y * w + x) * 4 + 3];
-          if (alpha > 10) {
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-            hasPixels = true;
-          }
-        }
-      }
-
-      if (!hasPixels) return null;
-
-      const pad = 8;
-      minX = Math.max(0, minX - pad);
-      minY = Math.max(0, minY - pad);
-      maxX = Math.min(w, maxX + pad);
-      maxY = Math.min(h, maxY + pad);
-
-      let cropW = maxX - minX;
-      let cropH = maxY - minY;
-
-      const MAX_SIDE = 400;
-      let scale = 1;
-      if (cropW > MAX_SIDE || cropH > MAX_SIDE) {
-        scale = Math.min(MAX_SIDE / cropW, MAX_SIDE / cropH);
-      }
-
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = cropW * scale;
-      tempCanvas.height = cropH * scale;
-      const tempCtx = tempCanvas.getContext('2d');
-
-      tempCtx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, tempCanvas.width, tempCanvas.height);
-      return tempCanvas.toDataURL('image/png');
-    }
 
     document.getElementById('submit-btn').addEventListener('click', async () => {
       const userName = document.getElementById('username-input').value.trim();
-      if (!userName) return alert("请输入姓名");
+      if (!userName) return App.showMessage('请输入姓名', 'warning');
 
-      const signatureImage = getOptimizedSignatureData();
-      if (!signatureImage) return alert("请先手写签名后再提交！");
+      const signatureImage = sig.getImageData();
+      if (!signatureImage) return App.showMessage('请先手写签名后再提交！', 'warning');
 
-      const response = await fetch(`/api/signatures?templateId=${templateId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName, signatureImage })
-      });
-
-      if (response.ok) {
-        alert("签署成功！您可以关闭当前窗口。");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      try {
+        await Signature.submitSignature(templateId, userName, signatureImage);
+        App.showMessage('签署成功！您可以关闭当前窗口。', 'success');
+        sig.clear();
         document.getElementById('username-input').value = '';
-      } else if (response.status === 404) {
-        alert("该签署链接已失效或不存在");
-        showError('该签署链接已失效或不存在');
-      } else {
-        alert("提交失败，请重试");
+      } catch (e) {
+        App.showMessage(e.message, 'error');
+        if (e.message.includes('失效')) {
+          showError(e.message);
+        }
       }
     });
-
-    window.onload = function() {
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.match(/MicroMessenger/i) == "micromessenger" || ua.match(/QQ/i) == "qq") {
-        document.getElementById('env-warning').style.display = 'block';
-      }
-    };
-  </script>
+</script>
 </body>
 </html>
