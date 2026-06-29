@@ -8,76 +8,163 @@
     <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.49.0/build/docxtemplater.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     
-    <link rel="stylesheet" href="lib/base.css">
     <style>
-        .container { width: 550px; }
-        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* 微信环境优雅提示条 */
+        .env-warning {
+            display: none;
+            width: 100%;
+            background-color: #fffaf0;
+            border-bottom: 1px solid #feebc8;
+            color: #dd6b20;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 13px;
+            box-sizing: border-box;
+            font-weight: bold;
+        }
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 100%;
+            width: 550px;
+            box-sizing: border-box;
+            margin: 20px 10px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="date"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+            background-color: #fff;
+        }
         textarea {
             resize: vertical;
             min-height: 140px;
         }
+        /* 岗位多选/单选布局样式 */
+        .job-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 8px 10px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+        }
+        .job-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: normal;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .job-label input[type="checkbox"]:disabled + span,
+        .job-label input[type="radio"]:disabled + span {
+            color: #a0aec0;
+        }
         
+        /* 实时人数预览样式 */
         .counter-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 6px;
             font-size: 13px;
-            color: var(--gray-500);
+            color: #718096;
         }
-        
         .counter-badge {
             font-weight: bold;
             padding: 2px 6px;
             border-radius: 10px;
-            background: var(--gray-200);
+            background: #edf2f7;
         }
-        
-        .counter-badge.normal { color: var(--success-color); background: #e6fffa; }
-        .counter-badge.warning { color: var(--warning-color); background: var(--warning-bg); }
-        .counter-badge.danger { color: var(--danger-color); background: #fff5f5; }
+        .counter-badge.normal { color: #38a169; background: #e6fffa; }
+        .counter-badge.warning { color: #dd6b20; background: #fffaf0; }
+        .counter-badge.danger { color: #e53e3e; background: #fff5f5; }
 
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        .btn-submit:hover { background-color: #2b6cb0; }
+        .btn-submit:disabled { background-color: #cbd5e0; cursor: not-allowed; }
+        
         .tips {
             background-color: #ebf8ff;
-            border-left: 4px solid var(--primary-color);
+            border-left: 4px solid #3182ce;
             padding: 10px;
             margin-bottom: 15px;
             font-size: 13px;
             color: #2b6cb0;
             line-height: 1.4;
         }
-        
-        .keyword { color: var(--danger-color); font-weight: bold; }
-        
-        .btn-submit {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: var(--border-radius-sm);
-            font-size: 16px;
-            cursor: pointer;
-            transition: var(--transition);
-            margin-top: 10px;
-        }
-        
-        .btn-submit:hover:not(:disabled) { background-color: var(--primary-hover); }
-        .btn-submit:disabled { background-color: var(--gray-300); cursor: not-allowed; }
-        
         .status-msg {
             text-align: center;
             font-size: 14px;
             margin-top: 10px;
-            color: var(--gray-600);
+            color: #4a5568;
             font-weight: bold;
         }
+        .keyword { color: #e53e3e; font-weight: bold; }
+        
+        .btn-home {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #718096;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .btn-home:hover { background-color: #4a5568; }
     </style>
 </head>
 <body>
 
 <div id="env-warning" class="env-warning">
-    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
+    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择“在浏览器中打开”。
 </div>
 
 <div class="container">
@@ -85,29 +172,34 @@
     <h2>智能台账填充生成系统 Pro Max</h2>
     
     <div class="tips">
-        <strong>📝  Word 占位符对照表：</strong><br>
-        • <strong>岗位名称</strong>：<span class="keyword">{job}</span>（对应输入的岗位）<br>
-        • <strong>总人数统计</strong>：<span class="keyword">{count}</span>（自动计算，最大支持 36 人）<br>
+        <strong>📝 Word 占位符对照表：</strong><br>
+        • <strong>岗位名称</strong>：<span class="keyword">{job}</span>（多选自动用顿号隔开，特殊模板为单选）<br>
+        • <strong>专属动态文字</strong>：<span class="keyword">{custom_text}</span>（特殊模板时自动拼接“岗位+文字”）<br>
+        • <strong>总人数统计</strong>：<span class="keyword">{count}</span>（自动计算，最大支持 34 人）<br>
         • <strong>所选日期</strong>：<span class="keyword">{year}</span>年<span class="keyword">{month}</span>月<span class="keyword">{day}</span>日<br>
         • <strong>明天的日期</strong>：<span class="keyword">{next_year}</span>年<span class="keyword">{next_month}</span>月<span class="keyword">{next_day}</span>日<br>
         • <strong>第3天 (后天)的日期</strong>：<span class="keyword">{third_year}</span>年<span class="keyword">{third_month}</span>月<span class="keyword">{third_day}</span>日<br>
-        • <strong>姓名列表</strong>：<span class="keyword">{name1}</span> 到 <span class="keyword">{name36}</span>（多余自动抹除）
+        • <strong>姓名列表</strong>：<span class="keyword">{name1}</span> 到 <span class="keyword">{name34}</span>（多余自动抹除）<br>
+        • <strong>培训日期排序</strong>：<br> <span>  第一日：股份、公共区，第二日：安全通识、岗位技能，第四日：岗位实操</span>
     </div>
 
     <div class="form-group">
         <label for="template-select">1. 选择模板</label>
-        <select id="template-select">
-            <option value="模板/安全技能培训.docx">安全技能培训</option>
-            <option value="模板/岗位安全通识培训.docx">岗位安全通识培训</option>
-            <option value="模板/公共区培训.docx">公共区培训</option>
+        <select id="template-select" onchange="syncJobOptions()">
             <option value="模板/股份公司培训.docx">股份公司培训</option>
-            <option value="模板/职业健康、安全法律法规教育.docx">职业健康、安全法律法规教育</option>
+            <option value="模板/公共区培训.docx">公共区培训</option>
+            <option value="模板/安全通识培训.docx">安全通识培训</option>
+            <option value="模板/岗位技能培训.docx">岗位技能培训</option>
+            <option value="模板/岗位实操培训.docx">岗位实操培训</option>
+
         </select>
     </div>
 
     <div class="form-group">
-        <label for="input-job">2. 输入岗位名称 ({job})</label>
-        <input type="text" id="input-job" placeholder="例如：秩序岗、收费岗">
+        <label id="job-label">2. 选择岗位名称 ({job})</label>
+        <div id="job-group" class="job-group">
+            <!-- 动态生成单选或多选 -->
+        </div>
     </div>
 
     <div class="form-group">
@@ -120,7 +212,7 @@
         <textarea id="input-names" oninput="updateUserCounter()" placeholder="1. 张三&#10;2、李四&#10;张三 (重名会自动过滤)"></textarea>
         <div class="counter-container">
             <span id="counter-hint">名单处理中...</span>
-            <span id="counter-badge" class="counter-badge normal">0 / 36 人</span>
+            <span id="counter-badge" class="counter-badge normal">0 / 34 人</span>
         </div>
     </div>
 
@@ -128,13 +220,108 @@
     <div id="status" class="status-msg"></div>
 </div>
 
-<script src="lib/base.js"></script>
 <script>
-    const MAX_PLACEHOLDERS = 36; // 最大支持 36 人
+    const MAX_PLACEHOLDERS = 34;
+    
+    // 特殊模板（需要单选 + 岗位+自定义文字）
+    const SPECIAL_TEMPLATES = [
+        "模板/岗位技能培训.docx",
+        "模板/岗位实操培训.docx"
+    ];
 
-    window.addEventListener('load', () => {
-        updateUserCounter(); // 初始化计数器
-    });
+    // 页面加载完毕后检测环境
+    window.onload = function() {
+        const ua = navigator.userAgent.toLowerCase();
+        if (ua.match(/MicroMessenger/i) == "micromessenger" || ua.match(/QQ/i) == "qq") {
+            document.getElementById('env-warning').style.display = 'block';
+        }
+        initJobOptions();
+        syncJobOptions();
+        updateUserCounter();
+    };
+
+    // 初始化岗位选项（同时支持 checkbox 和 radio）
+    function initJobOptions() {
+        const group = document.getElementById('job-group');
+        group.innerHTML = `
+            <label class="job-label">
+                <input type="checkbox" name="job-option" value="秩序员岗" onchange="handleJobChange(this)">
+                <span>秩序员岗</span>
+            </label>
+            <label class="job-label">
+                <input type="checkbox" name="job-option" value="收费员岗" onchange="handleJobChange(this)">
+                <span>收费员岗</span>
+            </label>
+            <label class="job-label">
+                <input type="checkbox" name="job-option" value="消控员岗" onchange="handleJobChange(this)">
+                <span>消控员岗</span>
+            </label>
+            <label class="job-label">
+                <input type="checkbox" name="job-option" value="监控员岗" onchange="handleJobChange(this)">
+                <span>监控员岗</span>
+            </label>
+        `;
+    }
+
+    // 联动控制：根据模板切换单选/多选
+    function syncJobOptions() {
+        const templateSelect = document.getElementById('template-select');
+        const isSpecial = SPECIAL_TEMPLATES.includes(templateSelect.value);
+        const group = document.getElementById('job-group');
+        const label = document.getElementById('job-label');
+
+        // 清空现有选项
+        group.innerHTML = '';
+
+        const jobs = [
+            {value: "秩序员岗", text: "秩序员岗"},
+            {value: "收费员岗", text: "收费员岗"},
+            {value: "消控员岗", text: "消控员岗"},
+            {value: "监控员岗", text: "监控员岗"}
+        ];
+
+        if (isSpecial) {
+            label.textContent = "2. 选择岗位名称（单选）";
+            jobs.forEach(job => {
+                const labelEl = document.createElement('label');
+                labelEl.className = 'job-label';
+                labelEl.innerHTML = `
+                    <input type="radio" name="job-option" value="${job.value}" onchange="handleJobChange(this)">
+                    <span>${job.text}</span>
+                `;
+                group.appendChild(labelEl);
+            });
+            // 默认选中第一个
+            setTimeout(() => {
+                const firstRadio = group.querySelector('input[type="radio"]');
+                if (firstRadio) firstRadio.checked = true;
+            }, 10);
+        } else {
+            label.textContent = "2. 选择岗位名称 ({job})";
+            jobs.forEach(job => {
+                const labelEl = document.createElement('label');
+                labelEl.className = 'job-label';
+                labelEl.innerHTML = `
+                    <input type="checkbox" name="job-option" value="${job.value}" onchange="handleJobChange(this)">
+                    <span>${job.text}</span>
+                `;
+                group.appendChild(labelEl);
+            });
+        }
+    }
+
+    function handleJobChange() {
+        // 可扩展校验逻辑
+    }
+
+    // 获取当前选中的岗位
+    function getCheckedJobs() {
+        const checked = [];
+        document.querySelectorAll('input[name="job-option"]:checked').forEach(cb => {
+            checked.push(cb.value);
+        });
+        return checked;
+    }
 
     // 姓名清洗、去噪、去重算法
     function cleanAndGetNames() {
@@ -147,20 +334,16 @@
         rawLines.forEach(line => {
             let name = line.trim();
             if (!name) return;
-
-            // 正则清洗：去掉开头的数字、点、顿号、横杠、空格等
-            name = name.replace(/^([0-9一二三四五六七八九十、.\s\-_—：:)]+)/, '');
-            name = name.trim();
-
+            name = name.replace(/^([0-9一二三四五六七八九十、.\s\-_—：:)]+)/, '').trim();
             if (name.length > 0) {
                 cleanedNames.push(name);
             }
         });
 
-        return [...new Set(cleanedNames)]; // 自动去重
+        return [...new Set(cleanedNames)];
     }
 
-    // 实时人数预览与按钮联动
+    // 实时人数预览
     function updateUserCounter() {
         const namesArray = cleanAndGetNames();
         const count = namesArray.length;
@@ -195,51 +378,72 @@
         const templateFile = selectElement.value;
         const templateName = selectElement.options[selectElement.selectedIndex].text;
         
-        const jobValue = document.getElementById('input-job').value.trim();
         const dateValue = document.getElementById('input-time').value;
         const btn = document.getElementById('submit-btn');
         const statusDiv = document.getElementById('status');
 
-        if (!jobValue) { App.showMessage('请填写岗位名称！', 'warning'); return; }
-        if (!dateValue) { App.showMessage('请选择日期！', 'warning'); return; }
+        const checkedJobs = getCheckedJobs();
+
+        if (checkedJobs.length === 0) { 
+            alert('请至少选择一个岗位名称！'); 
+            return; 
+        }
+        if (!dateValue) { 
+            alert('请选择日期！'); 
+            return; 
+        }
 
         const namesArray = cleanAndGetNames();
         if (namesArray.length === 0) return;
 
-        // 🧠 1. 解析日期
+        const jobValue = checkedJobs.join('、'); 
+        const isSpecial = SPECIAL_TEMPLATES.includes(templateFile);
+
+        // 自定义文字逻辑
+        let customTextValue = "";
+        if (isSpecial) {
+            // 安全技能培训 / 岗位安全通识培训 使用以下规则
+            const jobName = checkedJobs[0] || "";
+            if (jobName === "秩序员岗") {
+                customTextValue = "防爆器材实操";
+            } else {
+                customTextValue = jobName ? `${jobName}位技能实操` : "";
+            }
+        } else {
+            // 其他模板：仅秩序员岗特殊处理（可自行调整）
+            const hasZhixuyuan = checkedJobs.includes("秩序员岗");
+            if (hasZhixuyuan) {
+                customTextValue = "防爆器材实操";
+            } else {
+                customTextValue = "";
+            }
+        }
+
+
+        // 日期处理
         const dateParts = dateValue.split('-'); 
         const currentDate = new Date(dateValue);
-        
-        // 🧠 2. 计算第 2 天（明天）
         const nextDate = new Date(currentDate);
         nextDate.setDate(currentDate.getDate() + 1); 
-
-        // 🧠 3. 新增核心：计算第 3 天（后天）
         const thirdDate = new Date(currentDate);
         thirdDate.setDate(currentDate.getDate() + 2);
 
-        // 4. 构建渲染数据集
         const renderData = {
-            job: jobValue,
+            job: jobValue, 
+            custom_text: customTextValue,
             count: namesArray.length.toString(),
-            
-            // 第1天
             year: dateParts[0],
             month: parseInt(dateParts[1], 10).toString(), 
             day: parseInt(dateParts[2], 10).toString(),
-            
-            // 第2天
             next_year: nextDate.getFullYear().toString(),
             next_month: (nextDate.getMonth() + 1).toString(), 
             next_day: nextDate.getDate().toString(),
-
-            // 🔥 新增第3天数据映射
             third_year: thirdDate.getFullYear().toString(),
             third_month: (thirdDate.getMonth() + 1).toString(),
             third_day: thirdDate.getDate().toString()
         };
 
-        // 自动抹除 1~36
+        // 清空姓名占位符
         for (let i = 1; i <= MAX_PLACEHOLDERS; i++) {
             renderData[`name${i}`] = "";
         }
@@ -248,13 +452,13 @@
         });
 
         btn.disabled = true;
-        statusDiv.style.color = 'var(--gray-600)';
+        statusDiv.style.color = '#4a5568';
         statusDiv.innerText = `正在调取【${templateName}】并生成中...`;
 
         try {
             const response = await fetch(templateFile);
             if (!response.ok) {
-                throw new Error(`未能在云端找到 [${templateFile}]，请检查模板文件是否存在。`);
+                throw new Error(`未能在云端找到 [${templateFile}]`);
             }
             const arrayBuffer = await response.arrayBuffer();
 
@@ -276,19 +480,24 @@
             
             try {
                 saveAs(out, `${fileName}.docx`);
-                statusDiv.style.color = 'var(--success-color)';
+                statusDiv.style.color = '#38a169';
                 statusDiv.innerText = `🎉 成功生成！已开始下载。`;
             } catch (downloadError) {
-                App.downloadFile(out, `${fileName}.docx`);
-                statusDiv.style.color = 'var(--warning-color)';
-                statusDiv.innerText = `⚠️ 已尝试唤起备用下载，如无反应请复制链接在外部浏览器打开。`;
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(out);
+                link.download = `${fileName}.docx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                statusDiv.style.color = '#dd6b20';
+                statusDiv.innerText = `⚠️ 已尝试唤起备用下载`;
             }
 
         } catch (error) {
             console.error(error);
-            statusDiv.style.color = 'var(--danger-color)';
+            statusDiv.style.color = '#e53e3e';
             statusDiv.innerText = '生成失败，请检查配置。';
-            App.showMessage('系统异常: ' + error.message, 'error');
+            alert('系统异常: ' + error.message);
         } finally {
             setTimeout(() => { updateUserCounter(); }, 1500);
         }
