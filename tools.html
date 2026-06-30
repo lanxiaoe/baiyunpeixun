@@ -457,6 +457,23 @@ const JlcBook = (function() {
                 if (templateSheet.model && templateSheet.model.merges) {
                     templateSheet.model.merges.forEach(m => newSheet.mergeCells(m));
                 }
+                //打印设置
+                newSheet.pageSetup = {
+                    paperSize: 9,
+                    orientation: 'landscape',
+                    fitToPage: true,
+                    fitToWidth: 1,
+                    fitToHeight: 0,
+                    printTitlesRow: '1:3',
+                    margins: {
+                        top: 0.7874,
+                        bottom: 0.7874,
+                        left: 0.2362,
+                        right: 0.2362,
+                        header: 0.3,
+                        footer: 0.3
+                    }
+                };
 
                 const fillRules = [
                     //表头
