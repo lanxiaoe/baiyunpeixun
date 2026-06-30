@@ -16,7 +16,6 @@ export async function onRequest(context) {
 
   // --- POST: 上传数据源（公开） ---
   if (request.method === "POST") {
-    let XLSX = null;
     try {
       const formData = await request.formData();
       const file = formData.get("file");
@@ -35,16 +34,12 @@ export async function onRequest(context) {
       const dsId = "ds_" + crypto.randomUUID().slice(0, 12);
       const now = new Date().toISOString();
 
-      // 动态加载 XLSX
-      XLSX = await loadXLSX();
-
+      // 解析已在浏览器端完成，API 直接存储
       const excelBuffer = await file.arrayBuffer();
       const excelBytes = new Uint8Array(excelBuffer);
 
-      const wb = XLSX.read(excelBytes, { type: "array", cellDates: true });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: "" });
-      const jsonStr = JSON.stringify(jsonData);
+      // meta 中已包含完整 jsonData
+      const jsonStr = typeof meta.jsonData === 'string' ? meta.jsonData : JSON.stringify(meta.jsonData);
 
       const r2Key = `json/${dsId}.json`;
       const r2ExcelKey = `excel/${dsId}.xlsx`;
@@ -250,19 +245,3 @@ function parseFieldNames(raw) {
   }
 }
 
-async function loadXLSX() {
-  if (typeof XLSX !== "undefined" && XLSX.read) return XLSX;
-  const resp = await fetch("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
-  if (!resp.ok) throw new Error("XLSX CDN 请求失败: " + resp.status);
-  const text = await resp.text();
-  if (!text || text.length < 100) throw new Error("XLSX CDN 返回内容无效");
-  try {
-    eval(text);
-  } catch (e) {
-    throw new Error("XLSX 执行失败: " + e.message);
-  }
-  if (typeof XLSX === "undefined" || !XLSX.read) {
-    throw new Error("XLSX 加载后未定义");
-  }
-  return XLSX;
-}

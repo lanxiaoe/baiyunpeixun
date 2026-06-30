@@ -208,7 +208,8 @@ async function uploadDataSourceToCloud(file, jsonData) {
         const meta = {
             fileName: file.name,
             recordCount: jsonData.length,
-            fieldNames: Object.keys(jsonData[0] || {})
+            fieldNames: Object.keys(jsonData[0] || {}),
+            jsonData: jsonData  // 浏览器端已解析，直接传 JSON
         };
         const formData = new FormData();
         formData.append('file', file);
