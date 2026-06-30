@@ -171,6 +171,8 @@
 <script src="lib/base.js"></script>
 <script>
 // ==================== 共享数据源 ====================
+let sharedDataSourceId = null; // 当前数据源云端ID
+
 function onSharedExcelChange() {
     const file = document.getElementById('shared-excel').files[0];
     if (!file) return;
@@ -191,11 +193,34 @@ function onSharedExcelChange() {
             // 激活两个模块按钮
             DaArchive.onDataReady();
             JlcBook.onDataReady();
+
+            // 静默上传数据源到云端（失败不影响本地功能）
+            uploadDataSourceToCloud(file, json).catch(() => {});
         } catch (er) {
             document.getElementById('shared-hint').innerText = 'Excel 解析失败，请检查文件格式';
         }
     };
     reader.readAsArrayBuffer(file);
+}
+
+async function uploadDataSourceToCloud(file, jsonData) {
+    try {
+        const meta = {
+            fileName: file.name,
+            recordCount: jsonData.length,
+            fieldNames: Object.keys(jsonData[0] || {})
+        };
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('meta', JSON.stringify(meta));
+        const res = await fetch('/api/datasource', { method: 'POST', body: formData });
+        if (res.ok) {
+            const result = await res.json();
+            if (result.success) sharedDataSourceId = result.data.id;
+        }
+    } catch (_) {
+        // 静默失败，不影响本地流程
+    }
 }
 
 function getSharedFile() {
