@@ -2,7 +2,7 @@ name = "tz-app"
 compatibility_date = "2024-01-01"
 
 [[d1_databases]]
-binding = "DB"
+binding = "D1_DB"
 database_name = "tz-datasource"
 database_id = "5eb383c4-b04f-415f-a6d8-1ab68bcc0b1f"
 
