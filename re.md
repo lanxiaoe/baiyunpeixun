@@ -2,167 +2,211 @@
 
 ## 项目概述
 
-本系统基于 **Cloudflare Pages + Functions + KV** 构建，提供以下功能模块：
+基于 **Cloudflare Pages + Functions + KV + D1 + R2** 构建，包含以下模块：
 
 | 模块 | 页面 | 说明 |
 |------|------|------|
+| 首页导航 | `index.html` | 入口页面 |
 | 台账生成 | `px_tz.html` | 从 Excel 数据生成 Word 培训台账 |
-| 工具集 | `tools.html` | 生成培训档案（.docx）和记录册（.xlsx），共享同一数据源 |
+| 工具集 | `tools.html` | 生成培训档案（.docx）和记录册（.xlsx），共享同一数据源，上传时自动同步到云端 |
+| 数据源管理 | `datasource/admin.html` | 查看已上传数据源列表、明细表格、下载、删除（公开访问） |
 | 签名签署 | `signature/sign.html` | 手机端手写签名提交 |
-| 签名管理 | `signature/admin.html` | 管理后台，管理模板、查看签名、一键打包合成 |
+| 签名管理 | `signature/admin.html` | 管理后台，密码保护。管理模板、查看签名、一键打包合成 |
 
 ## 项目结构
 
 ```
 台账/
 ├── index.html                     # 首页导航
-├── px_tz.html                     # 台账填充生成
-├── tools.html                     # 档案/记录册工具集
-├── lib/
-│   ├── base.css                   # 共享样式
-│   └── base.js                    # 共享工具函数（API、消息提示、签名工具等）
+├── px_tz.html                     # 台账填充生成（独立样式）
+├── tools.html                     # 档案/记录册工具集（含云端同步）
+├── datasource/
+│   ├── admin.html                 # 数据源管理后台（公开）
+│   └── datasource.sql             # D1 数据库建表 SQL
 ├── signature/
 │   ├── sign.html                  # 签名签署页面
-│   └── admin.html                 # 签名管理后台
+│   └── admin.html                 # 签名管理后台（密码保护）
+├── lib/
+│   ├── base.css                   # 共享样式（部分页面引用）
+│   └── base.js                    # 共享工具函数
 ├── functions/
 │   └── api/
-│       ├── signatures.js          # 签名提交与列表查询 API
-│       └── template.js            # 模板上传/获取/删除 API
-├── 模板/
-│   ├── 台账模板.docx              # px_tz.html 用的台账模板
-│   ├── 公共区培训.docx            # tools.html 档案模板
+│       ├── signatures.js          # 签名提交/查询 API（KV 存储）
+│       ├── template.js             # 模板上传/获取/删除 API（KV 存储）
+│       └── datasource.js          # 数据源上传/列表/明细/删除 API（D1 + R2）
+├── 模板/                          # 随部署上传的静态模板文件
+│   ├── 台账模板.docx
+│   ├── 公共区培训.docx
 │   ├── 安全通识培训.docx
 │   ├── 岗位实操培训.docx
 │   ├── 岗位技能培训.docx
-│   └── 股份公司培训.docx
+│   ├── 股份公司培训.docx
+│   └── 记录册模板.xlsx
+├── wrangler.toml                  # Cloudflare Workers/Pages 配置文件
 └── re.md                          # 本文档
 ```
 
 ## 架构说明
 
 ```
-┌──────────────────────────────────────────┐
-│            Cloudflare Pages              │
-│  ┌────────────────────────────────────┐  │
-│  │     静态资源 (HTML/CSS/JS)          │  │
-│  │  index.html, px_tz.html,            │  │
-│  │  tools.html, signature/*.html       │  │
-│  └──────────────┬─────────────────────┘  │
-│                 │                         │
-│  ┌──────────────▼─────────────────────┐  │
-│  │     Cloudflare Functions           │  │
-│  │  /api/signatures  /api/template    │  │
-│  └──────────────┬─────────────────────┘  │
-│                 │                         │
-│  ┌──────────────▼─────────────────────┐  │
-│  │        Cloudflare KV               │  │
-│  │  绑定名: DB                        │  │
-│  │  - template:meta:{id}              │  │
-│  │  - template:file:{id}              │  │
-│  │  - sign:data:{templateId}:{key}    │  │
-│  └────────────────────────────────────┘  │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │      Environment Variables          │  │
-│  │  ADMIN_PASSWORD = 管理员密码        │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│              Cloudflare Pages                      │
+│  ┌────────────────────────────────────────────┐  │
+│  │     静态资源 (HTML/CSS/JS/模板文件)          │  │
+│  └─────────────┬──────────────────────────────┘  │
+│                │                                  │
+│  ┌─────────────▼──────────────────────────────┐  │
+│  │     Cloudflare Functions (API Routes)        │  │
+│  │  /api/signatures  /api/template             │  │
+│  │  /api/datasource                            │  │
+│  └───────┬──────────────────┬──────────────────┘  │
+│          │                  │                    │
+│  ┌───────▼───────┐  ┌───────▼────────┐          │
+│  │  KV (DB)      │  │  D1 (D1_DB)   │          │
+│  │  签名/模板     │  │  数据源元数据   │          │
+│  └───────────────┘  └────────────────┘          │
+│          │                                     │
+│  ┌───────▼──────────────────────────────────┐  │
+│  │  R2 (DATA_BUCKET)                         │  │
+│  │  原始 Excel + 解析后 JSON                  │  │
+│  └──────────────────────────────────────────┘  │
+│                                                   │
+│  ┌──────────────────────────────────────────┐   │
+│  │      Environment Variables                 │   │
+│  │  ADMIN_PASSWORD = 管理员密码                │   │
+│  └──────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────┘
 ```
+
+## 存储绑定说明
+
+| Binding 变量名 | 类型 | 用途 |
+|---------------|------|------|
+| `DB` | KV Namespace | 签名系统的模板文件和签名数据 |
+| `D1_DB` | D1 Database | 数据源管理的元数据 |
+| `DATA_BUCKET` | R2 Bucket | 数据源的原始 Excel 和 JSON 文件 |
 
 ## 前置条件
 
 1. 一个 [Cloudflare](https://dash.cloudflare.com) 账号
-2. 已完成实名认证（KV 和 Functions 需要）
+2. 已完成实名认证（KV、D1、R2 需要）
+3. 本地安装 [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)：`npm install -g wrangler`
 
 ## 部署步骤
 
-### 第一步：创建 KV 命名空间
+### 第一步：创建 Cloudflare 存储
 
-1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com)
-2. 左侧菜单点击 **存储与数据库 (Storage & Databases)** → **KV**
-3. 点击 **创建命名空间 (Create Namespace)**
-4. 输入名称（例如 `TAIZHANG_KV`），点击创建
-5. 记录命名空间 ID（后续绑定需要，但通过页面选择即可）
+**1.1 创建 KV 命名空间（签名系统用）**
+1. [Cloudflare 控制台](https://dash.cloudflare.com) → **存储与数据库** → **KV** → **创建命名空间**
+2. 名称：`PDF_SIGN_KV` → 创建
 
-### 第二步：部署到 Cloudflare Pages
+**1.2 创建 D1 数据库（数据源系统用）**
+1. 命令行执行：
+   ```bash
+   wrangler d1 create tz-datasource
+   ```
+2. 将返回的 `database_id` 填入 `wrangler.toml` 的 `database_id` 字段
+3. 初始化表结构：
+   ```bash
+   wrangler d1 execute tz-datasource --file=./datasource/datasource.sql
+   ```
 
-1. 左侧菜单点击 **Workers & Pages** → 点击 **创建 (Create)**
-2. 选择 **Pages** 选项卡 → **直接上传 (Direct Upload)**
-3. 输入项目名称（例如 `taizhang`），点击 **创建项目**
-4. 将本项目的**整个文件夹**拖拽上传到网页中
-   - 确保 `functions/` 目录在根级别（Cloudflare 会自动识别为 Functions）
-   - 确保 `lib/`、`signature/`、`模板/`、`*.html` 都在根级别
-5. 点击 **部署站点 (Deploy site)**
+**1.3 创建 R2 存储桶（数据源文件用）**
+1. Cloudflare 控制台 → **存储与数据库** → **R2** → **创建存储桶**
+2. 名称：`tz-datasource-files`
 
-### 第三步：绑定 KV 命名空间
+### 第二步：配置并部署
 
-1. 进入刚创建的 Pages 项目 → 切换到 **设置 (Settings)** 选项卡
-2. 左侧子菜单点击 **函数 (Functions)**
-3. 向下滚动找到 **KV 命名空间绑定 (KV namespace bindings)**，点击 **添加绑定 (Add binding)**
-4. 填写绑定信息：
-   - **变量名称 (Variable name)**：`DB`（必须与代码中 `env.DB` 一致）
-   - **KV 命名空间 (KV namespace)**：选择第一步创建的命名空间
-5. 点击 **保存 (Save)**
+**2.1 填写 wrangler.toml（已包含在项目中）**
 
-### 第四步：设置管理员密码
+```toml
+name = "tz-app"
+compatibility_date = "2024-01-01"
 
-1. 在 **设置 (Settings)** → **环境变量 (Environment variables)**
-2. 在生产环境 (Production) 下点击 **添加变量 (Add variable)**：
-   - **变量名称 (Variable name)**：`ADMIN_PASSWORD`
-   - **值 (Value)**：设置一个安全的自定义密码（例如 `MyTaizhang2026!`）
-3. 建议预览环境 (Preview) 也添加相同的变量
-4. 点击 **保存 (Save)**
+# KV - 签名系统
+[[kv_namespaces]]
+binding = "DB"
+id = "<创建 KV 后填入的 ID>"
 
-### 第五步：重新部署使配置生效
+# D1 - 数据源系统
+[[d1_databases]]
+binding = "D1_DB"
+database_name = "tz-datasource"
+database_id = "<第一步 1.2 返回的 ID>"
 
-1. 切换到 **部署 (Deployments)** 选项卡
-2. 找到最新的部署记录，点击右侧的三个点 `...`
-3. 选择 **重试部署 (Retry deployment)**
+# R2 - 数据源文件
+[[r2_buckets]]
+binding = "DATA_BUCKET"
+bucket_name = "tz-datasource-files"
+```
 
-## 验证部署
+**2.2 设置管理员密码**
+```bash
+wrangler secret put ADMIN_PASSWORD
+# 输入你的管理员密码
+```
 
-部署成功后，Cloudflare 会分配一个 `*.pages.dev` 免费域名。
+**2.3 部署**
+```bash
+wrangler deploy
+```
+
+### 第三步：验证部署
 
 | 验证项 | URL | 预期结果 |
 |--------|-----|----------|
 | 首页 | `https://你的项目.pages.dev/` | 显示导航卡片 |
 | 台账生成 | `/px_tz.html` | 可上传 Excel 生成 Word |
-| 工具集 | `/tools.html` | 可上传共享 Excel 生成档案/记录册 |
+| 工具集 | `/tools.html` | 上传 Excel 后自动云端同步 |
+| 数据源管理 | `/datasource/admin.html` | 直接显示管理界面（无密码） |
 | 签名管理 | `/signature/admin.html` | 输入密码后进入管理后台 |
 | 签名签署 | `/signature/sign.html?templateId=xxx` | 手机端手写签名 |
 
-### 签名管理后台验证步骤
-
-1. 访问 `https://你的项目.pages.dev/signature/admin.html`
-2. 输入在环境变量中设置的 `ADMIN_PASSWORD`
-3. 点击"记住密码"
-4. 上传 PDF 模板文件，在页面上拖拽确定签名区域，保存模板
-5. 复制分享链接在手机上打开，输入姓名并手写签名提交
-6. 回到管理后台，点击"一键合成并打包下载"获取带签名的 Zip 包
-
 ## CDN 依赖
 
-所有第三方库通过 jsdelivr CDN 加载，无需本地安装：
+所有第三方库统一使用 **jsdelivr** CDN，无需本地安装：
 
-| 库 | 用途 | 引用页面 |
-|----|------|----------|
-| PizZip | ZIP/Word 文档操作 | px_tz.html, tools.html |
-| docxtemplater | Word 模板引擎 | px_tz.html, tools.html |
-| docxtemplater-image-module | Word 图片模块 | px_tz.html, tools.html |
-| ExcelJS | Excel 读取与写入 | px_tz.html, tools.html |
-| XLSX (SheetJS) | Excel 解析 | tools.html |
-| FileSaver.js | 浏览器文件下载 | px_tz.html, tools.html |
+| 库 | jsdelivr 路径 | 用途页面 |
+|----|---------------|----------|
+| PizZip | `https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js` | tools.html, px_tz.html |
+| docxtemplater | `https://cdn.jsdelivr.net/npm/docxtemplater@3.49.0/build/docxtemplater.js` | tools.html, px_tz.html |
+| docxtemplater-image-module | `https://cdn.jsdelivr.net/npm/docxtemplater-image-module-free-browserify@1.1.2/build/imagemodule.js` | tools.html |
+| ExcelJS | `https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js` | tools.html |
+| XLSX (SheetJS) | `https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js` | tools.html |
+| FileSaver.js | `https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js` | tools.html, px_tz.html |
+| pdf.js | `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js` | signature/admin.html |
+| pdf.js worker | `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js` | signature/admin.html |
+| pdf-lib | `https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js` | signature/admin.html |
+| JSZip | `https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js` | signature/admin.html |
+
+## 签名管理后台使用流程
+
+1. 访问 `/signature/admin.html`，输入 `ADMIN_PASSWORD` 登录
+2. 上传 PDF 模板，用鼠标拖拽框选签名区域，点击发布
+3. 复制生成的链接在手机端打开，输入姓名并手写签名提交
+4. 回到管理后台，点击"一键打包下载"获取带所有签名的 ZIP 文件
+
+## 数据源管理说明
+
+- **tools.html** 上传 Excel 时自动静默上传到云端，无需额外操作
+- 数据源元数据存入 D1，原始文件和 JSON 存入 R2
+- 管理页面 `/datasource/admin.html` 公开访问，支持查看明细表格、下载原始 Excel、删除
+- 删除操作会同时清理 D1 元数据和 R2 文件，不可恢复
 
 ## 常见问题
 
-### Q: 部署后访问 API 返回 500 错误？
-检查 KV 绑定是否正确：变量名必须是 `DB`，命名空间必须已创建。
+### Q: API 返回 500 或 "env.DB undefined"？
+检查 `wrangler.toml` 中 KV 绑定名称是否为 `DB`，D1 绑定名称是否为 `D1_DB`。
 
-### Q: 签名管理后台一直提示密码错误？
-检查环境变量 `ADMIN_PASSWORD` 是否已设置，且需重新部署后生效。
+### Q: 数据源上传后管理页面不显示？
+1. 确认 D1 表已创建：`wrangler d1 execute tz-datasource --file=./datasource/datasource.sql`
+2. 确认 R2 存储桶已创建并绑定为 `DATA_BUCKET`
 
-### Q: 生成文档时提示"PizZip is not defined"？
-CDN 资源加载失败。检查网络是否能访问 `cdn.jsdelivr.net`。国内网络偶尔不稳定，刷新重试即可。
+### Q: 签名管理后台提示密码错误？
+确认 `ADMIN_PASSWORD` 环境变量已通过 `wrangler secret put` 设置，且需重新 `wrangler deploy` 使其生效。
 
-### Q: 模板文件在哪里？
-`模板/` 目录下的 `.docx` 和 `.xlsx` 文件随项目一起部署到 Pages。`px_tz.html` 使用硬编码路径引用，`tools.html` 通过用户选择不同的 `.docx` 模板生成对应类型的档案。
+### Q: tools.html 生成文档提示 "PizZip is not defined"？
+CDN 加载失败，刷新页面重试。国内网络可能需稍等或使用代理。
+
+### Q: 部署后页面空白或资源 404？
+确认项目文件夹完整上传，所有 HTML/CSS/JS 和 `模板/` 目录都在根目录。`functions/` 目录也必须在根目录（Cloudflare 会自动识别其中的 API）。
