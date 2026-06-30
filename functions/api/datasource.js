@@ -253,9 +253,16 @@ function parseFieldNames(raw) {
 async function loadXLSX() {
   if (typeof XLSX !== "undefined" && XLSX.read) return XLSX;
   const resp = await fetch("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
-  if (!resp.ok) throw new Error("XLSX CDN 请求失败");
+  if (!resp.ok) throw new Error("XLSX CDN 请求失败: " + resp.status);
   const text = await resp.text();
   if (!text || text.length < 100) throw new Error("XLSX CDN 返回内容无效");
-  const fn = new Function(text + "\nreturn XLSX;");
-  return fn();
+  try {
+    eval(text);
+  } catch (e) {
+    throw new Error("XLSX 执行失败: " + e.message);
+  }
+  if (typeof XLSX === "undefined" || !XLSX.read) {
+    throw new Error("XLSX 加载后未定义");
+  }
+  return XLSX;
 }
