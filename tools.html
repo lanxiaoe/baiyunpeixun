@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台账工具集</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.49.0/build/docxtemplater.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater-image-module-free-browserify@1.1.2/build/imagemodule.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    
+    <link rel="stylesheet" href="lib/base.css">
+    <style>
+        .container { width: 620px; margin: 60px 10px 40px; }
+
+        .shared-upload {
+            background: #ebf8ff;
+            border: 2px dashed var(--primary-color);
+            border-radius: var(--border-radius);
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .shared-upload h3 { font-size: 16px; margin-bottom: 4px; color: var(--primary-color); }
+        .shared-upload .shared-hint { font-size: 13px; color: var(--gray-500); margin-bottom: 12px; }
+        
+        .section-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .section-card h3 { font-size: 18px; margin-bottom: 6px; }
+        .section-card .section-desc { color: var(--gray-500); font-size: 13px; margin-bottom: 16px; }
+        
+        .template-info {
+            background-color: #e6fffa;
+            border-left: 4px solid var(--success-color);
+            padding: 10px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #276749;
+            line-height: 1.4;
+        }
+        .tips {
+            background-color: #ebf8ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 10px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #2b6cb0;
+            line-height: 1.4;
+        }
+        
+        .keyword { color: var(--danger-color); font-weight: bold; }
+        
+        .counter-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--gray-500);
+        }
+        .counter-badge {
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--gray-200);
+        }
+        .counter-badge.normal { color: var(--success-color); background: #e6fffa; }
+        .counter-badge.warning { color: var(--warning-color); background: var(--warning-bg); }
+        
+        .status-msg {
+            text-align: center;
+            font-size: 14px;
+            margin-top: 12px;
+            color: var(--gray-600);
+            font-weight: bold;
+            white-space: pre-wrap;
+            background: var(--gray-100);
+            padding: 12px;
+            border-radius: var(--border-radius-sm);
+            min-height: 50px;
+            line-height: 1.6;
+        }
+        
+        @media (max-width: 640px) {
+            .container { width: 95%; padding: 15px; }
+            .section-card { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="env-warning" class="env-warning">
+    ⚠️ 检测到您正在使用微信/QQ内置浏览器，可能会导致文档下载被拦截。建议点击右上角选择"在浏览器中打开"。
+</div>
+
+<div class="container">
+    <a href="index.html" class="btn-home">← 返回首页</a>
+    <h2>台账工具集</h2>
+
+    <!-- ========== 共享数据源上传 ========== -->
+    <div class="shared-upload">
+        <h3>📁 1. 上传数据源 Excel（两个模块共用）</h3>
+        <p class="shared-hint">上传一次，即可同时用于档案生成和记录册生成</p>
+        <input type="file" id="shared-excel" accept=".xlsx, .xls" onchange="onSharedExcelChange()">
+        <div class="counter-container" id="shared-info" style="display:none; margin-top: 10px;">
+            <span id="shared-hint">数据解析中...</span>
+            <span id="shared-badge" class="counter-badge normal">0 条</span>
+        </div>
+    </div>
+
+    <!-- ========== 模块一：档案生成 ========== -->
+    <div class="section-card">
+        <h3>📷 2. 批量档案生成 → Word 文档</h3>
+        <p class="section-desc">上传 Excel 数据源和照片，批量生成带图片的个人档案文档，每条记录自动分页</p>
+        
+        <div class="template-info">
+            <strong>📄 模板：台账模板.docx（自动加载）</strong><br>
+            模板包含 <span class="keyword">{#数据列表}</span> 循环标签，每条记录后自动插入分页符
+        </div>
+        <div class="tips">
+            <strong>📝 Word 占位符：</strong><br>
+            • 循环：<span class="keyword">{#数据列表}</span> ... <span class="keyword">{/数据列表}</span><br>
+            • 照片：<span class="keyword">{%相片}</span> —— Excel 列名"相片"填图片文件名<br>
+            • 字段：<span class="keyword">{姓名}</span>、<span class="keyword">{部门}</span> 等
+        </div>
+
+        <div class="form-group">
+            <label for="da-images">选择照片（对应 Excel"相片"列中的文件名）</label>
+            <input type="file" id="da-images" accept="image/*" multiple onchange="DaArchive.updateImageInfo()">
+            <div class="counter-container" id="da-image-info" style="display:none;">
+                <span id="da-image-hint"></span>
+                <span id="da-image-badge" class="counter-badge normal">0 张</span>
+            </div>
+        </div>
+
+        <button id="da-generate-btn" class="btn-primary" onclick="DaArchive.generate()" disabled style="width:100%;">
+            📷 生成档案文档 (.docx)
+        </button>
+        <div id="da-status" class="status-msg">请先上传数据源 Excel</div>
+    </div>
+
+    <!-- ========== 模块二：记录册生成 ========== -->
+    <div class="section-card">
+        <h3>📊 3. 培训记录册生成 → Excel 工作簿</h3>
+        <p class="section-desc">自动为每条记录生成独立工作表，按姓名命名，培训记录按时间线排序</p>
+        
+        <div class="template-info">
+            <strong>📄 模板：记录册模板.xlsx（自动加载）</strong>
+        </div>
+        <div class="tips">
+            <strong>📝 功能说明：</strong><br>
+            • 使用上方共享的 Excel 数据源<br>
+            • 每人生成一个独立工作表<br>
+            • 自动按培训时间排序
+        </div>
+
+        <button id="jlc-generate-btn" class="btn-success" onclick="JlcBook.generate()" disabled style="width:100%;">
+            📊 生成记录册 (.xlsx)
+        </button>
+        <div id="jlc-status" class="status-msg">请先上传数据源 Excel</div>
+    </div>
+</div>
+
+<script src="lib/base.js"></script>
+<script>
+// ==================== 共享数据源 ====================
+function onSharedExcelChange() {
+    const file = document.getElementById('shared-excel').files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: 'array', cellDates: true });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: '' });
+
+            document.getElementById('shared-info').style.display = 'flex';
+            document.getElementById('shared-badge').innerText = json.length + ' 条';
+            document.getElementById('shared-badge').className = json.length > 100 ? 'counter-badge warning' : 'counter-badge normal';
+            document.getElementById('shared-hint').innerText = '已识别 ' + (Object.keys(json[0] || {}).length) + ' 个字段，可同时用于两个模块';
+
+            // 激活两个模块按钮
+            DaArchive.onDataReady();
+            JlcBook.onDataReady();
+        } catch (er) {
+            document.getElementById('shared-hint').innerText = 'Excel 解析失败，请检查文件格式';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function getSharedFile() {
+    return document.getElementById('shared-excel').files[0];
+}
+
+
+// ==================== 模块一：档案生成 ====================
+const DaArchive = (function() {
+    const TEMPLATE_FILE = '模板/台账模板.docx';
+    const PAGE_BREAK_RUN = '<w:r><w:br w:type="page"/></w:r>';
+
+    function statusEl() { return document.getElementById('da-status'); }
+
+    function log(msg) {
+        const el = statusEl();
+        el.innerText = msg;
+        if (msg.includes('成功') || msg.includes('导出')) el.style.color = 'var(--success-color)';
+        else if (msg.includes('错误') || msg.includes('失败')) el.style.color = 'var(--danger-color)';
+        else el.style.color = 'var(--gray-600)';
+    }
+
+    function updateImageInfo() {
+        const files = document.getElementById('da-images').files;
+        if (files.length === 0) return;
+        document.getElementById('da-image-info').style.display = 'flex';
+        document.getElementById('da-image-badge').innerText = files.length + ' 张';
+        document.getElementById('da-image-badge').className = files.length > 50 ? 'counter-badge warning' : 'counter-badge normal';
+        document.getElementById('da-image-hint').innerText = '照片已就绪';
+    }
+
+    function onDataReady() {
+        document.getElementById('da-generate-btn').disabled = false;
+        log('数据源已就绪，点击按钮开始生成档案');
+    }
+
+    async function generate() {
+        const excelFile = getSharedFile();
+        const imageInputs = document.getElementById('da-images').files;
+        if (!excelFile) { App.showMessage('请先上传数据源 Excel！', 'warning'); return; }
+
+        document.getElementById('da-generate-btn').disabled = true;
+        log('正在加载模板...');
+
+        try {
+            const resp = await fetch(TEMPLATE_FILE);
+            if (!resp.ok) throw new Error('无法加载模板: ' + TEMPLATE_FILE);
+            const templateBuffer = await resp.arrayBuffer();
+            log('模板加载成功，解析数据中...');
+
+            const excelData = await readExcel(excelFile);
+            log('读取 ' + excelData.length + ' 条记录，处理图片中...');
+
+            const imageFileMap = {};
+            for (let i = 0; i < imageInputs.length; i++) {
+                imageFileMap[imageInputs[i].name] = imageInputs[i];
+            }
+            const imageBufferMap = {};
+            for (let i = 0; i < excelData.length; i++) {
+                const pn = excelData[i]['相片'];
+                if (pn && imageFileMap[pn] && !imageBufferMap[pn]) {
+                    imageBufferMap[pn] = await readFileBuffer(imageFileMap[pn]);
+                }
+            }
+
+            log('初始化文档引擎...');
+            const zip = new PizZip(templateBuffer);
+            const imageModule = new ImageModule({
+                centered: false,
+                fileType: 'docx',
+                getImage: function(tv) { return imageBufferMap[tv] || null; },
+                getSize: function() { return [160, 200]; }
+            });
+            const doc = new docxtemplater(zip, {
+                paragraphLoop: true, linebreaks: true, modules: [imageModule]
+            });
+
+            log('生成文档中（数据量大时请耐心等待）...');
+            await new Promise(r => setTimeout(r, 50));
+            doc.render({ '数据列表': excelData });
+
+            log('插入分页符...');
+            const outputZip = doc.getZip();
+            let xml = outputZip.file('word/document.xml').asText();
+            const tableCount = (xml.match(/<\/w:tbl>/g) || []).length;
+            if (tableCount > 1) {
+                let ti = 0;
+                xml = xml.replace(/<\/w:tbl>/g, function(m) {
+                    ti++;
+                    return ti < tableCount ? m + '<w:p>' + PAGE_BREAK_RUN + '</w:p>' : m;
+                });
+            }
+            outputZip.file('word/document.xml', xml);
+
+            log('打包下载...');
+            const out = outputZip.generate({
+                type: 'blob',
+                mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+            const fileName = '批量档案_' + excelData.length + '人.docx';
+            try { saveAs(out, fileName); } catch (de) { App.downloadFile(out, fileName); }
+            log('🎉 导出成功！');
+        } catch (error) {
+            console.error(error);
+            log('❌ 发生错误: ' + error.message);
+            App.showMessage('系统异常: ' + error.message, 'error');
+        } finally {
+            setTimeout(() => { document.getElementById('da-generate-btn').disabled = false; }, 2000);
+        }
+    }
+
+    function readExcel(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                resolve(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, defval: '' }));
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function readFileBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    return { updateImageInfo, onDataReady, generate };
+})();
+
+
+// ==================== 模块二：记录册生成 ====================
+const JlcBook = (function() {
+    const TEMPLATE_FILE = '模板/记录册模板.xlsx';
+
+    function statusEl() { return document.getElementById('jlc-status'); }
+
+    function log(msg) {
+        const el = statusEl();
+        el.innerText = msg;
+        if (msg.includes('成功') || msg.includes('完成')) el.style.color = 'var(--success-color)';
+        else if (msg.includes('错误') || msg.includes('失败')) el.style.color = 'var(--danger-color)';
+        else el.style.color = 'var(--gray-600)';
+    }
+
+    function onDataReady() {
+        document.getElementById('jlc-generate-btn').disabled = false;
+        log('数据源已就绪，点击按钮开始生成记录册');
+    }
+
+    function getTimestamp(val) {
+        if (!val) return Infinity;
+        if (val instanceof Date) return val.getTime();
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? Infinity : d.getTime();
+    }
+
+    async function generate() {
+        const dataFile = getSharedFile();
+        if (!dataFile) { App.showMessage('请先上传数据源 Excel！', 'warning'); return; }
+
+        const btn = document.getElementById('jlc-generate-btn');
+        btn.disabled = true;
+        log('加载模板中...');
+
+        try {
+            const resp = await fetch(TEMPLATE_FILE);
+            if (!resp.ok) throw new Error('无法加载模板: ' + TEMPLATE_FILE);
+            const templateBuffer = await resp.arrayBuffer();
+            log('模板加载成功，处理数据中...');
+
+            const dataWb = new ExcelJS.Workbook();
+            const templateWb = new ExcelJS.Workbook();
+            await dataWb.xlsx.load(await dataFile.arrayBuffer(), { formulaCache: false });
+            await templateWb.xlsx.load(templateBuffer, { formulaCache: false });
+
+            const dataSheet = dataWb.worksheets[0];
+            const templateSheet = templateWb.worksheets[0];
+            const sourceStartRow = 2;
+            const dataRowCount = dataSheet.rowCount;
+            const nameCol = 4;
+
+            log('处理 ' + (dataRowCount - 1) + ' 条记录...');
+
+            for (let r = sourceStartRow; r <= dataRowCount; r++) {
+                const sourceRow = dataSheet.getRow(r);
+                if (!sourceRow.hasValues) continue;
+
+                let personName = sourceRow.getCell(nameCol).value;
+                if (!personName) personName = '未命名_' + r;
+                personName = String(personName).replace(/[\\/?*\[\]]/g, '').substring(0, 31);
+
+                let finalName = personName;
+                let counter = 1;
+                while (templateWb.getWorksheet(finalName)) {
+                    finalName = personName + '_' + counter;
+                    counter++;
+                }
+
+                const newSheet = templateWb.addWorksheet(finalName);
+
+                for (let ci = 1; ci <= 30; ci++) {
+                    const col = templateSheet.getColumn(ci);
+                    if (col && col.width) newSheet.getColumn(ci).width = col.width;
+                }
+                templateSheet.eachRow({ includeEmpty: true }, (row, rowNum) => {
+                    const newRow = newSheet.getRow(rowNum);
+                    if (row.height) newRow.height = row.height;
+                    row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+                        const newCell = newRow.getCell(colNum);
+                        if (cell.value !== undefined && cell.value !== null) {
+                            if (typeof cell.value === 'object') {
+                                if (cell.value.formula) {
+                                    newCell.value = cell.value.result !== undefined ? cell.value.result : cell.value.formula;
+                                } else if (cell.value.sharedFormula) {
+                                    newCell.value = cell.value.result !== undefined ? cell.value.result : '';
+                                } else {
+                                    newCell.value = cell.value;
+                                }
+                            } else {
+                                newCell.value = cell.value;
+                            }
+                        }
+                        if (cell.style) newCell.style = Object.assign({}, cell.style);
+                    });
+                });
+                if (templateSheet.model && templateSheet.model.merges) {
+                    templateSheet.model.merges.forEach(m => newSheet.mergeCells(m));
+                }
+
+                const fillRules = [
+                    //表头
+                    { sc: 7,  t: 'A1' },
+                    { sc: 5,  t: 'C23' },
+                    //股份
+                    { sc: 11, t: 'H4' }, { sc: 11, t: 'H5' }, { sc: 11, t: 'H6' }, { sc: 11, t: 'H7' }, { sc: 11, t: 'H8' }, { sc: 11, t: 'H9' },
+                    { sc: 12, t: 'O4' }, { sc: 12, t: 'O5' }, { sc: 12, t: 'O6' }, { sc: 12, t: 'O7' }, { sc: 12, t: 'O9' },
+                    //公共区
+                    { sc: 13, t: 'H10' }, { sc: 13, t: 'H11' }, { sc: 13, t: 'H12' },
+                    { sc: 14, t: 'O10' }, { sc: 14, t: 'O11' }, { sc: 14, t: 'O12' },
+                    //安全通识培训
+                    { sc: 15, t: 'H13' }, { sc: 15, t: 'H14' }, { sc: 15, t: 'H15' }, { sc: 15, t: 'H16' },
+                    { sc: 16, t: 'O13' }, { sc: 17, t: 'O14' }, { sc: 18, t: 'O15' }, { sc: 19, t: 'O16' },
+                    //岗位技能培训-->岗位手册培训
+                    { sc: 20, t: 'H17' }, 
+                    { sc: 21, t: 'O17' },
+                    //岗位技能培训-->宿舍安全\反恐安全\交通安全\电梯安全
+                    { sc: 22, t: 'H18' }, { sc: 22, t: 'H19' },{ sc: 22, t: 'H20' },{ sc: 22, t: 'H21' },
+                    { sc: 23, t: 'O18' }, { sc: 24, t: 'O19' },{ sc: 25, t: 'O20' },{ sc: 26, t: 'O21' },
+                    //岗位技能培训-->急救培训\典型不安全事件警示教育
+                    { sc: 27, t: 'H22' }, { sc: 27, t: 'H23' },
+                    { sc: 28, t: 'O22' }, { sc: 29, t: 'O23' },
+                    //岗位实操培训-->灭火器、消火栓使用操作/突发事件应急处置流程模拟实操/防暴器材实操/岗位技能培训
+                    { sc: 30, t: 'H24' }, { sc: 30, t: 'H25' }, { sc: 30, t: 'H26' },
+                    { sc: 31, t: 'O24' }, { sc: 32, t: 'O25' }, { sc: 33, t: 'O26' },
+                ];
+                fillRules.forEach(rule => {
+                    let raw = sourceRow.getCell(rule.sc).value;
+                    let final = raw;
+                    if (raw && typeof raw === 'object') {
+                        if (raw.result !== undefined) final = raw.result;
+                        else if (raw.richText) final = raw.richText.map(rt => rt.text).join('');
+                    }
+                    newSheet.getCell(rule.t).value = final;
+                });
+
+                const startSortRow = 4;
+                let lastRow = startSortRow;
+                newSheet.eachRow({ includeEmpty: false }, function(row, rowNum) {
+                    if (rowNum >= startSortRow) {
+                        let has = false;
+                        for (let c = 1; c <= 18; c++) { if (row.getCell(c).value) { has = true; break; } }
+                        if (has && rowNum > lastRow) lastRow = rowNum;
+                    }
+                });
+                let sortData = [];
+                for (let sr = startSortRow; sr <= lastRow; sr++) {
+                    let vals = [];
+                    for (let sc = 1; sc <= 18; sc++) vals.push(newSheet.getCell(sr, sc).value);
+                    sortData.push({ values: vals, timeKey: newSheet.getCell(sr, 8).value });
+                }
+                sortData.sort((a, b) => getTimestamp(a.timeKey) - getTimestamp(b.timeKey));
+                for (let i = 0; i < sortData.length; i++) {
+                    const tr = startSortRow + i;
+                    for (let sc = 1; sc <= 18; sc++) newSheet.getCell(tr, sc).value = sortData[i].values[sc - 1];
+                }
+            }
+
+            log('导出文件中...');
+            templateWb.removeWorksheet(templateSheet.id);
+            const buffer = await templateWb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            try { saveAs(blob, '已生成多页_以姓名命名.xlsx'); } catch (de) { App.downloadFile(blob, '已生成多页_以姓名命名.xlsx'); }
+            log('🎉 处理成功！');
+        } catch (error) {
+            console.error('处理出错:', error);
+            log('❌ 处理失败: ' + error.message);
+            App.showMessage('处理失败: ' + error.message, 'error');
+        } finally {
+            setTimeout(() => { document.getElementById('jlc-generate-btn').disabled = false; }, 2000);
+        }
+    }
+
+    return { onDataReady, generate };
+})();
+
+App.trackPageView('tools');
+</script>
+</body>
+</html>
