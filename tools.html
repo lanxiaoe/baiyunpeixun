@@ -457,8 +457,7 @@ const JlcBook = (function() {
                 if (templateSheet.model && templateSheet.model.merges) {
                     templateSheet.model.merges.forEach(m => newSheet.mergeCells(m));
                 }
-                //删除第8行
-                newSheet.deleteRow(8);
+
                 //打印设置
                 newSheet.pageSetup = {
                     paperSize: 9,
@@ -533,6 +532,8 @@ const JlcBook = (function() {
                     const tr = startSortRow + i;
                     for (let sc = 1; sc <= 18; sc++) newSheet.getCell(tr, sc).value = sortData[i].values[sc - 1];
                 }
+                //删除第8行
+                newSheet.spliceRows(8, 1);
             }
 
             log('导出文件中...');
