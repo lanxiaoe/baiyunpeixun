@@ -457,6 +457,8 @@ const JlcBook = (function() {
                 if (templateSheet.model && templateSheet.model.merges) {
                     templateSheet.model.merges.forEach(m => newSheet.mergeCells(m));
                 }
+                //删除第8行
+                newSheet.deleteRow(8);
                 //打印设置
                 newSheet.pageSetup = {
                     paperSize: 9,
