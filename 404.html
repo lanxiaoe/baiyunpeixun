@@ -1,1 +1,56 @@
-dddd
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 找不到咯</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background-color: #222;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 {
+            font-size: 160px;
+            animation: swing 3s ease-in-out infinite;
+            margin: 0;
+        }
+        @keyframes swing {
+            0% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+            100% { transform: rotate(-3deg); }
+        }
+        p {
+            font-size: 20px;
+            color: #ccc;
+        }
+        .msg {
+            margin: 15px 0 30px;
+        }
+        a {
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 10px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+        a:hover {
+            background: #fff;
+            color: #222;
+        }
+    </style>
+</head>
+<body>
+    <h1>404</h1>
+    <p>搜索半天，啥也没捞着</p>
+    <div class="msg">
+        页面大概率跑路了，要不换个地方逛逛？
+    </div>
+    <a href="/">返回首页继续摸鱼</a>
+</body>
+</html>
