@@ -333,13 +333,50 @@ const DaArchive = (function() {
         }
     }
 
+    function formatDate(val) {
+        if (!val) return val;
+        let d;
+        if (val instanceof Date) {
+            d = val;
+        } else if (typeof val === 'number' && val > 0 && val < 100000) {
+            d = new Date(Date.UTC(1899, 11, 30 + Math.floor(val)));
+        } else if (typeof val === 'string') {
+            const match = val.match(/^(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,4})/);
+            if (match) {
+                let p1 = parseInt(match[1]), p2 = parseInt(match[2]), p3 = parseInt(match[3]);
+                let y, m, day;
+                if (p1 >= 1900) {
+                    y = p1; m = p2; day = p3;
+                } else {
+                    m = p1; day = p2; y = p3;
+                    if (y < 100) y += 2000;
+                }
+                d = new Date(y, m - 1, day);
+            } else {
+                return val;
+            }
+        } else {
+            return val;
+        }
+        if (isNaN(d.getTime())) return val;
+        return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    }
+
     function readExcel(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const data = new Uint8Array(e.target.result);
                 const wb = XLSX.read(data, { type: 'array', cellDates: true });
-                resolve(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, defval: '' }));
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, defval: '' });
+                for (let i = 0; i < rows.length; i++) {
+                    for (const key in rows[i]) {
+                        if (key === '入职时间') {
+                            rows[i][key] = formatDate(rows[i][key]);
+                        }
+                    }
+                }
+                resolve(rows);
             };
             reader.onerror = reject;
             reader.readAsArrayBuffer(file);
@@ -479,7 +516,7 @@ const JlcBook = (function() {
                 const fillRules = [
                     //表头
                     { sc: 7,  t: 'A1' },
-                    { sc: 5,  t: 'C23' },
+                    { sc: 5,  t: 'C26' },
                     //股份
                     { sc: 11, t: 'H4' }, { sc: 11, t: 'H5' }, { sc: 11, t: 'H6' }, { sc: 11, t: 'H7' }, { sc: 11, t: 'H8' }, { sc: 11, t: 'H9' },
                     { sc: 12, t: 'O4' }, { sc: 12, t: 'O5' }, { sc: 12, t: 'O6' }, { sc: 12, t: 'O7' }, { sc: 12, t: 'O9' },
@@ -532,9 +569,13 @@ const JlcBook = (function() {
                     const tr = startSortRow + i;
                     for (let sc = 1; sc <= 18; sc++) newSheet.getCell(tr, sc).value = sortData[i].values[sc - 1];
                 }
-                //删除第8行
-                newSheet.spliceRows(8, 1);
             }
+
+            templateWb.eachSheet(function(sheet) {
+                if (sheet.rowCount >= 8) {
+                    sheet.spliceRows(8, 1);
+                }
+            });
 
             log('导出文件中...');
             templateWb.removeWorksheet(templateSheet.id);
