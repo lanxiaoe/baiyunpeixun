@@ -260,9 +260,20 @@
                 <input type="checkbox" name="job-option" value="监控员岗" onchange="handleJobChange(this)">
                 <span>监控员岗</span>
             </label>
+            
+
         `;
     }
-
+    
+            // <label class="job-label">
+            //    <input type="checkbox" name="job-option" value="保洁员岗" onchange="handleJobChange(this)">
+            //    <span>保洁员岗</span>
+          //  </label>
+          //  <label class="job-label">
+          //      <input type="checkbox" name="job-option" value="运维技术员岗" onchange="handleJobChange(this)">
+         //       <span>运维技术员岗</span>
+         //   </label>
+  
     // 联动控制：根据模板切换单选/多选
     function syncJobOptions() {
         const templateSelect = document.getElementById('template-select');
@@ -277,7 +288,9 @@
             {value: "秩序员岗", text: "秩序员岗"},
             {value: "收费员岗", text: "收费员岗"},
             {value: "消控员岗", text: "消控员岗"},
-            {value: "监控员岗", text: "监控员岗"}
+            {value: "监控员岗", text: "监控员岗"},
+            //{value: "保洁员岗", text: "保洁员岗"},
+            //{value: "运维技术员岗", text: "运维技术员岗"}
         ];
 
         if (isSpecial) {

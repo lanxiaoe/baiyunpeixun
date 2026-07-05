@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连贯式培训逐字稿生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js?v=20260705"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js?v=20260705"></script>
+    <link rel="stylesheet" href="../lib/base.css">
+    <style>
+        .sidebar-scroll {
+            height: calc(100vh - 350px);
+            overflow-y: auto;
+        }
+        .equal-height {
+            height: calc(100vh - 350px);
+            display: flex;
+            flex-direction: column;
+        }
+        .page-content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .grid-3-9 {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-area:hover {
+            border-color: #3182ce;
+            background: #f7fafc;
+        }
+        .flex-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .page-item-sidebar {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            margin-bottom: 6px;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .page-item-sidebar:hover {
+            background: #f7fafc;
+        }
+        .page-item-sidebar.active {
+            background: #ebf8ff;
+            border-color: #3182ce;
+        }
+        @media (max-width: 768px) {
+            .grid-3-9 {
+                grid-template-columns: 1fr;
+            }
+            .sidebar-scroll, .equal-height {
+                height: auto;
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="width: 100%; max-width: 1200px;">
+        <a href="index.html" class="btn-home">← 返回 PTV 工具集</a>
+        
+        <h1>📝 连贯式培训逐字稿生成</h1>
+
+        <div class="card">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>接口地址</label>
+                    <input type="text" id="apiUrl" value="https://api.siliconflow.cn/v1/chat/completions">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="apiKey" value="sk-fdzyiebmhtkkxvvcsjmxbdlzceidvdjnuxanjqapqdbvwalg">
+                </div>
+                <div class="form-group">
+                    <label>模型名称</label>
+                    <input type="text" id="modelName" value="deepseek-ai/DeepSeek-V4-Pro">
+                </div>
+            </div>
+            <div class="flex-row" style="margin-top: 15px;">
+                <button id="testApiBtn" class="btn-primary">测试API连接</button>
+                <span id="testResult" class="text-sm"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex-row">
+                <label>
+                    <input type="radio" name="mode" value="text" checked>
+                    <span>文本模式（PPTX文字提取）</span>
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="multimodal">
+                    <span>多模态图片模式（PDF）</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>系统指令</h3>
+            <textarea id="systemPrompt" rows="7">
+你是一名资深企业内训讲师，严格遵守以下规则：
+1. 页面类型区分：
+【封面页】简短开场问候，控制在60字以内，不讲解业务内容；
+【目录页】只罗列章节大纲，字数160字以内，不展开细节；
+【章节标题页】只用一句话引出本节内容，简洁过渡；
+【正文页】撰写口语化培训讲稿，篇幅控制在250~400字。
+
+2. 语言多样化硬性要求：
+每一段过渡语句、开场措辞、承接话术必须避免重复，不要反复使用"接下来""下面""我们来看"这类通用词汇。
+交替使用不同句式：陈述句、设问句、总结句轮换，每页表达方式要有区分，防止全篇文案同质化。
+
+3. 上下文衔接：
+承接上一页收尾内容，同时结合下一页标题自然转折，章节过渡流畅自然。
+
+4. 输出要求：只输出纯口语文稿，不要任何标题、序号、多余注释。
+            </textarea>
+        </div>
+
+        <div class="card">
+            <div id="uploadArea" class="upload-area">
+                <p style="color: #718096;">点击或拖拽 .pptx / .pdf</p>
+                <input type="file" id="fileInput" accept=".pptx,.pdf" class="hidden">
+            </div>
+            <div id="fileInfo" class="text-sm" style="color: #718096; margin-top: 10px; display: none;">
+                已选择：<span id="fileName"></span>
+            </div>
+            <div class="flex-row" style="margin-top: 15px;">
+                <button id="parseBtn" class="btn-primary" disabled>解析文件</button>
+                <button id="generateBtn" class="btn-success" disabled>连贯批量生成</button>
+                <button id="exportTxtBtn" class="btn-secondary" disabled>导出TXT</button>
+                <button id="exportJsonBtn" class="btn-secondary" disabled>导出JSON</button>
+                <span id="statusTip" class="text-sm" style="color: #718096;"></span>
+            </div>
+        </div>
+
+        <div class="grid-3-9">
+            <div class="card" style="height: fit-content;">
+                <h3 style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">页面目录</h3>
+                <div id="pageSidebar" class="sidebar-scroll"></div>
+            </div>
+
+            <div class="card equal-height">
+                <div class="page-content-scroll">
+                    <div id="mainPageView">
+                        <div class="text-center" style="color: #a0aec0; padding: 100px 0;">解析课件后，在此查看页面内容</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            let currentFile = null;
+            let currentFileType = null;
+            let slidesText = [];
+            let slidesImages = [];
+            let scriptResultList = [];
+            let pageTypeList = [];
+            let chatWindow = [];
+            let activePageIndex = 0;
+
+            const $ = id => document.getElementById(id);
+            const apiUrlInput = $('apiUrl');
+            const apiKeyInput = $('apiKey');
+            const modelNameInput = $('modelName');
+            const testApiBtn = $('testApiBtn');
+            const testResult = $('testResult');
+            const uploadArea = $('uploadArea');
+            const fileInput = $('fileInput');
+            const fileInfo = $('fileInfo');
+            const fileName = $('fileName');
+            const parseBtn = $('parseBtn');
+            const generateBtn = $('generateBtn');
+            const exportTxtBtn = $('exportTxtBtn');
+            const exportJsonBtn = $('exportJsonBtn');
+            const pageSidebar = $('pageSidebar');
+            const mainPageView = $('mainPageView');
+            const systemPromptInput = $('systemPrompt');
+            const statusTip = $('statusTip');
+
+            if (typeof pdfjsLib !== 'undefined') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            }
+
+            uploadArea.onclick = () => fileInput.click();
+            uploadArea.ondragover = e => e.preventDefault();
+            uploadArea.ondrop = e => {
+                e.preventDefault();
+                handleFileSelect(e.dataTransfer.files[0]);
+            };
+            fileInput.onchange = e => handleFileSelect(e.target.files[0]);
+
+            function handleFileSelect(file) {
+                if (!file) return;
+                const name = file.name.toLowerCase();
+                if (name.endsWith('.pptx')) {
+                    currentFileType = 'pptx';
+                    document.querySelector('input[value="text"]').checked = true;
+                } else if (name.endsWith('.pdf')) {
+                    currentFileType = 'pdf';
+                    document.querySelector('input[value="multimodal"]').checked = true;
+                } else {
+                    alert('仅支持 pptx / pdf');
+                    return;
+                }
+                currentFile = file;
+                fileName.textContent = file.name;
+                fileInfo.style.display = 'block';
+                parseBtn.disabled = false;
+                generateBtn.disabled = true;
+                exportTxtBtn.disabled = true;
+                exportJsonBtn.disabled = true;
+                pageSidebar.innerHTML = '';
+                mainPageView.innerHTML = '<div class="text-center" style="color: #a0aec0; padding: 100px 0;">等待解析</div>';
+                slidesText = [];
+                slidesImages = [];
+                scriptResultList = [];
+                pageTypeList = [];
+                chatWindow = [];
+                activePageIndex = 0;
+            }
+
+            testApiBtn.onclick = async () => {
+                testResult.textContent = '测试中...';
+                try {
+                    const res = await callAI([{ role: 'user', content: '只回复成功两个字' }]);
+                    let text = res?.choices?.[0]?.message?.content?.trim() || '';
+                    if (text) {
+                        testResult.textContent = '✅ 接口正常';
+                        testResult.style.color = '#38a169';
+                    } else throw new Error('接口返回空白');
+                } catch (e) {
+                    testResult.textContent = '❌ ' + e.message;
+                    testResult.style.color = '#e53e3e';
+                }
+            };
+
+            parseBtn.onclick = async () => {
+                parseBtn.disabled = true;
+                parseBtn.textContent = '解析中';
+                statusTip.textContent = '正在渲染页面';
+                pageSidebar.innerHTML = '';
+                try {
+                    if (currentFileType === 'pdf') {
+                        await parsePDFToImages();
+                    } else {
+                        await parsePptxText();
+                    }
+                    const total = slidesText.length || slidesImages.length;
+                    pageTypeList = Array(total).fill('正文页');
+                    scriptResultList = Array(total).fill('等待生成逐字稿');
+                    renderSidebarList();
+                    activePageIndex = 0;
+                    renderSinglePage(activePageIndex);
+
+                    generateBtn.disabled = false;
+                    statusTip.textContent = `解析完成，共${total}页，左侧点击切换页面`;
+                } catch (err) {
+                    alert('解析失败：' + err.message);
+                } finally {
+                    parseBtn.disabled = false;
+                    parseBtn.textContent = '解析文件';
+                }
+            };
+
+            async function parsePDFToImages() {
+                slidesImages = [];
+                const ab = await currentFile.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+                const total = pdf.numPages;
+                for (let i = 1; i <= total; i++) {
+                    statusTip.textContent = `渲染第${i}/${total}页`;
+                    const page = await pdf.getPage(i);
+                    const view = page.getViewport({ scale: 1.2 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = view.width;
+                    canvas.height = view.height;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport: view }).promise;
+                    slidesImages.push(canvas.toDataURL('image/jpeg', 0.6));
+                }
+            }
+
+            async function parsePptxText() {
+                slidesText = [];
+                const zip = await JSZip.loadAsync(currentFile);
+                const slideList = Object.keys(zip.files)
+                    .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+                    .sort((a, b) => {
+                        const numA = +a.match(/slide(\d+)/)[1];
+                        const numB = +b.match(/slide(\d+)/)[1];
+                        return numA - numB;
+                    });
+                for (const filename of slideList) {
+                    const xml = await zip.file(filename).async('string');
+                    const textArr = xml.match(/<a:t>(.+?)<\/a:t>/g) || [];
+                    const text = textArr.map(s => s.replace(/<\/?a:t>/g, '')).join('\n').trim();
+                    slidesText.push(text || '空白页');
+                }
+            }
+
+            function renderSidebarList() {
+                pageSidebar.innerHTML = '';
+                const total = slidesText.length || slidesImages.length;
+                for (let i = 0; i < total; i++) {
+                    const item = document.createElement('div');
+                    item.className = 'page-item-sidebar';
+                    item.dataset.index = i;
+                    item.innerHTML = `第 ${i+1} 页`;
+                    item.onclick = () => {
+                        activePageIndex = i;
+                        renderSinglePage(i);
+                        highlightSidebar();
+                    };
+                    pageSidebar.appendChild(item);
+                }
+                highlightSidebar();
+            }
+
+            function highlightSidebar() {
+                document.querySelectorAll('.page-item-sidebar').forEach((el, idx) => {
+                    if (idx === activePageIndex) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
+                });
+            }
+
+            function renderSinglePage(idx) {
+                mainPageView.innerHTML = '';
+                const div = document.createElement('div');
+                div.style.marginBottom = '20px';
+
+                if (currentFileType === 'pdf') {
+                    div.innerHTML = `
+                        <div class="flex-row" style="align-items: center;">
+                            <span style="font-size: 18px; font-weight: bold;">第 ${idx+1} 页</span>
+                            <select class="page-type-select" data-index="${idx}" style="padding: 6px 12px;">
+                                <option value="封面页">封面页</option>
+                                <option value="目录页">目录页</option>
+                                <option value="章节标题页">章节标题页</option>
+                                <option value="正文页">正文页</option>
+                            </select>
+                        </div>
+                        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-top: 15px;">
+                            <img src="${slidesImages[idx]}" style="max-width: 100%;">
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">生成的逐字稿：</label>
+                            <textarea class="script-box" data-index="${idx}" rows="12" style="width: 100%;"></textarea>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div class="flex-row" style="align-items: center;">
+                            <span style="font-size: 18px; font-weight: bold;">第 ${idx+1} 页</span>
+                            <select class="page-type-select" data-index="${idx}" style="padding: 6px 12px;">
+                                <option value="封面页">封面页</option>
+                                <option value="目录页">目录页</option>
+                                <option value="章节标题页">章节标题页</option>
+                                <option value="正文页">正文页</option>
+                            </select>
+                        </div>
+                        <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-top: 15px; white-space: pre-wrap; font-size: 14px; min-height: 120px; word-break: break-word;">${slidesText[idx]}</div>
+                        <div style="margin-top: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">生成的逐字稿：</label>
+                            <textarea class="script-box" data-index="${idx}" rows="12" style="width: 100%;"></textarea>
+                        </div>
+                    `;
+                }
+                mainPageView.appendChild(div);
+
+                const typeSel = div.querySelector('.page-type-select');
+                typeSel.value = pageTypeList[idx];
+                typeSel.onchange = function () {
+                    pageTypeList[idx] = this.value;
+                };
+
+                const textarea = div.querySelector('.script-box');
+                textarea.value = scriptResultList[idx];
+                textarea.oninput = function () {
+                    scriptResultList[idx] = this.value;
+                };
+            }
+
+            function getPageBrief(pageIndex) {
+                const total = slidesText.length || slidesImages.length;
+                if (pageIndex >= total) return '无后续章节';
+                if (currentFileType === 'pdf') {
+                    return `下一章节：第${pageIndex+1}页课件`;
+                } else {
+                    const rawText = slidesText[pageIndex];
+                    const short = rawText.slice(0, 60).replace(/\n/g, ' ');
+                    return `下一章节预览：${short}……`;
+                }
+            }
+
+            generateBtn.onclick = async () => {
+                generateBtn.disabled = true;
+                generateBtn.textContent = '正在连贯生成';
+                exportTxtBtn.disabled = true;
+                exportJsonBtn.disabled = true;
+                chatWindow = [];
+
+                const total = slidesText.length || slidesImages.length;
+                let success = 0, fail = 0;
+
+                for (let i = 0; i < total; i++) {
+                    statusTip.textContent = `正在生成第${i+1}/${total}页`;
+
+                    try {
+                        if (chatWindow.length > 2) chatWindow.splice(1, 1);
+                        const prevScript = i > 0 ? scriptResultList[i - 1] : '课程开篇，无上文';
+                        const nextPreview = getPageBrief(i + 1);
+                        const pageType = pageTypeList[i];
+                        const messages = buildContextMessage(i, prevScript, nextPreview, pageType);
+
+                        let content = '';
+                        for (let r = 0; r <= 2; r++) {
+                            await new Promise(resolve => setTimeout(resolve, 600));
+                            const res = await callAI(messages);
+                            let txt = res?.choices?.[0]?.message?.content?.trim() || '';
+                            if (txt.length > 10) {
+                                content = txt;
+                                break;
+                            }
+                        }
+
+                        if (!content) throw new Error('多次请求仍然无内容返回');
+                        scriptResultList[i] = content;
+                        chatWindow.push({ role: 'assistant', content });
+                        success++;
+                    } catch (err) {
+                        scriptResultList[i] = '失败：' + err.message;
+                        fail++;
+                    }
+                    if (i === activePageIndex) {
+                        renderSinglePage(i);
+                    }
+                }
+
+                generateBtn.disabled = false;
+                generateBtn.textContent = '连贯批量生成';
+                exportTxtBtn.disabled = false;
+                exportJsonBtn.disabled = false;
+                statusTip.textContent = `完成：成功${success}页，失败${fail}页`;
+                renderSinglePage(activePageIndex);
+            };
+
+            function buildContextMessage(idx, prevScript, nextPreview, pageType) {
+                const sys = systemPromptInput.value;
+                const msg = [{ role: 'system', content: sys }, ...chatWindow];
+
+                let userText = `页面类型：${pageType}
+上文内容：${prevScript}
+当前课件内容：`;
+
+                if (currentFileType === 'pdf') {
+                    msg.push({
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: userText + `后续章节预览：${nextPreview}，撰写风格多样化的培训口语稿，措辞不要重复。` },
+                            { type: 'image_url', image_url: { url: slidesImages[idx] } }
+                        ]
+                    });
+                } else {
+                    userText += slidesText[idx] + `
+后续章节预览：${nextPreview}
+严格控制篇幅，句式措辞多样化，避免和前后段落用词重复。只输出口语文稿。`;
+                    msg.push({ role: 'user', content: userText });
+                }
+                return msg;
+            }
+
+            async function callAI(messages) {
+                const payload = {
+                    model: modelNameInput.value.trim(),
+                    messages,
+                    temperature: 0.3,
+                    max_tokens: 1200
+                };
+                const resp = await fetch(apiUrlInput.value.trim(), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKeyInput.value.trim()}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) {
+                    const txt = await resp.text();
+                    throw new Error(`HTTP${resp.status}:${txt}`);
+                }
+                return await resp.json();
+            }
+
+            function safeDownload(content, fileName, mime) {
+                try {
+                    const blob = new Blob([content], { type: mime });
+                    const a = document.createElement('a');
+                    if (window.webkitURL) {
+                        a.href = window.webkitURL.createObjectURL(blob);
+                    } else {
+                        a.href = URL.createObjectURL(blob);
+                    }
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => {
+                        URL.revokeObjectURL(a.href);
+                    }, 100);
+                } catch (e) {
+                    alert('文件导出失败：' + e.message);
+                }
+            }
+
+            exportTxtBtn.onclick = () => {
+                let out = '';
+                scriptResultList.forEach((txt, i) => {
+                    out += `====第${i+1}页====\n${txt}\n\n`;
+                });
+                safeDownload(out, '培训连贯逐字稿.txt', 'text/plain;charset=utf-8');
+            };
+
+            exportJsonBtn.onclick = () => {
+                const arr = scriptResultList.map((script, i) => ({
+                    page: i + 1,
+                    script: script
+                }));
+                const jsonStr = JSON.stringify(arr, null, 2);
+                safeDownload(jsonStr, '培训连贯逐字稿.json', 'application/json;charset=utf-8');
+            };
+        });
+    </script>
+</body>
+</html>

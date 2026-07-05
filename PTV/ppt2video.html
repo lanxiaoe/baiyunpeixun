@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT音频插入工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js?v=20260705"></script>
+    <link rel="stylesheet" href="../lib/base.css">
+    <style>
+        .file-info-box {
+            background: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 20px;
+        }
+        .progress-bar-bg {
+            background: #e2e8f0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .progress-bar-fill {
+            background: #3182ce;
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .status-text {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="btn-home">← 返回 PTV 工具集</a>
+        
+        <h1>🎵 PPT音频插入工具</h1>
+        <p class="hint">将MP3音频批量插入到PPT幻灯片中，音频文件需命名为 page_1.mp3, page_2.mp3 ...</p>
+
+        <div class="form-group">
+            <label><strong>PPTX 文件：</strong></label>
+            <input type="file" id="pptxFile" accept=".pptx">
+        </div>
+        
+        <div class="form-group">
+            <label><strong>ZIP 文件（包含 page_1.mp3, page_2.mp3 ...）：</strong></label>
+            <input type="file" id="zipFile" accept=".zip">
+        </div>
+        
+        <div id="fileInfo" class="file-info-box" style="display: none;">
+            <h3>文件信息：</h3>
+            <p><strong>PPTX 文件：</strong> <span id="pptxName">-</span></p>
+            <p><strong>幻灯片页数：</strong> <span id="slideCount">-</span> 页</p>
+            <p><strong>ZIP 文件：</strong> <span id="zipName">-</span></p>
+            <p><strong>MP3 文件数：</strong> <span id="mp3Count">-</span> 个</p>
+            <p><strong>匹配的页数：</strong> <span id="matchCount">-</span> 页</p>
+            <p id="matchDetails" style="font-size: 0.9em; color: #666; margin-top: 10px;"></p>
+        </div>
+        
+        <button id="processBtn" class="btn-primary" style="width:100%">开始处理</button>
+        
+        <div id="progress" style="display: none;">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        async function generateAudioIcon() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#4A90D9';
+            ctx.beginPath();
+            ctx.roundRect(8, 8, 48, 48, 8);
+            ctx.fill();
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.moveTo(20, 32);
+            ctx.lineTo(28, 20);
+            ctx.lineTo(28, 44);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(38, 24, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(42, 32, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(38, 40, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            return canvas.toDataURL('image/png').split(',')[1];
+        }
+
+        function base64ToUint8Array(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        function getNextRId(relsXml) {
+            let maxId = 0;
+            const matches = relsXml.match(/rId(\d+)/g);
+            if (matches) {
+                matches.forEach(rId => {
+                    const num = parseInt(rId.replace('rId', ''), 10);
+                    if (num > maxId) maxId = num;
+                });
+            }
+            return maxId + 1;
+        }
+
+        function getNextShapeId(slideXml) {
+            let maxId = 0;
+            const matches = slideXml.match(/id="(\d+)"/g);
+            if (matches) {
+                matches.forEach(idStr => {
+                    const num = parseInt(idStr.match(/(\d+)/)[0], 10);
+                    if (num > maxId) maxId = num;
+                });
+            }
+            return maxId + 1;
+        }
+
+        function addAudioElement(slideXml, relsXml, audioFilename, iconBase64, pageNum) {
+            const nextRId = getNextRId(relsXml);
+            const rIdAudio = `rId${nextRId}`;
+            const rIdMedia = `rId${nextRId + 1}`;
+            const rIdIcon = `rId${nextRId + 2}`;
+            const shapeId = getNextShapeId(slideXml);
+            
+            const audioRel = `<Relationship Id="${rIdAudio}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio" Target="../media/${audioFilename}"/>`;
+            const mediaRel = `<Relationship Id="${rIdMedia}" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="../media/${audioFilename}"/>`;
+            const iconRel = `<Relationship Id="${rIdIcon}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/audio_icon.png"/>`;
+            
+            relsXml = relsXml.replace('</Relationships>', audioRel + mediaRel + iconRel + '</Relationships>');
+            
+            if (!slideXml.includes('xmlns:p14=')) {
+                slideXml = slideXml.replace(
+                    /<p:sld([^>]*)>/,
+                    '<p:sld$1 xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">'
+                );
+            }
+            
+            const audioPic = `<p:pic><p:nvPicPr><p:cNvPr id="${shapeId}" name="Audio_${pageNum}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr><p:cNvPicPr/><p:nvPr><a:audioFile r:link="${rIdAudio}"/><p:extLst><p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"><p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="${rIdMedia}"/></p:ext></p:extLst></p:nvPr></p:nvPicPr><p:blipFill><a:blip r:embed="${rIdIcon}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="1270000" y="1270000"/><a:ext cx="381000" cy="381000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+            
+            slideXml = slideXml.replace('</p:spTree>', audioPic + '</p:spTree>');
+            
+            const timing = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="afterEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr additive="base"><p:cTn id="6" dur="12480" fill="hold"/><p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq><p:audio><p:cMediaNode showWhenStopped="0"><p:cTn id="7" fill="hold" display="1"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst><p:endCondLst><p:cond evt="onStopAudio"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:endCondLst></p:cTn><p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl></p:cMediaNode></p:audio></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
+            
+            slideXml = slideXml.replace('</p:sld>', timing + '</p:sld>');
+            
+            return { slideXml, relsXml, iconBase64 };
+        }
+
+        function fixContentTypes(contentTypesXml) {
+            contentTypesXml = contentTypesXml.replace('audio/mp3', 'audio/mpeg');
+            if (!contentTypesXml.includes('Extension="mp3"')) {
+                contentTypesXml = contentTypesXml.replace(
+                    '</Types>',
+                    '<Default Extension="mp3" ContentType="audio/mpeg"/></Types>'
+                );
+            }
+            return contentTypesXml;
+        }
+
+        let pptxZipCache = null;
+        let audioMapCache = {};
+        
+        async function updateFileInfo() {
+            const pptxFile = document.getElementById('pptxFile').files[0];
+            const zipFile = document.getElementById('zipFile').files[0];
+            const fileInfoDiv = document.getElementById('fileInfo');
+            
+            if (!pptxFile || !zipFile) {
+                fileInfoDiv.style.display = 'none';
+                return;
+            }
+            
+            try {
+                document.getElementById('pptxName').textContent = pptxFile.name;
+                document.getElementById('zipName').textContent = zipFile.name;
+                
+                const pptxArrayBuffer = await pptxFile.arrayBuffer();
+                pptxZipCache = await JSZip.loadAsync(pptxArrayBuffer);
+                
+                const slideFiles = Object.keys(pptxZipCache.files).filter(name => 
+                    name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
+                );
+                document.getElementById('slideCount').textContent = slideFiles.length;
+                
+                const zipArrayBuffer = await zipFile.arrayBuffer();
+                const audioZip = await JSZip.loadAsync(zipArrayBuffer);
+                
+                audioMapCache = {};
+                const mp3Files = [];
+                audioZip.forEach((relativePath, file) => {
+                    if (relativePath.toLowerCase().endsWith('.mp3')) {
+                        const match = relativePath.match(/page_(\d+)\.mp3/i);
+                        if (match) {
+                            const pageNum = parseInt(match[1]);
+                            audioMapCache[pageNum] = file;
+                            mp3Files.push(pageNum);
+                        }
+                    }
+                });
+                
+                document.getElementById('mp3Count').textContent = mp3Files.length;
+                
+                const matchedPages = mp3Files.filter(p => slideFiles.some(s => s.includes(`slide${p}`)));
+                document.getElementById('matchCount').textContent = matchedPages.length;
+                
+                const sortedMp3Files = [...mp3Files].sort((a, b) => a - b);
+                document.getElementById('matchDetails').textContent = 
+                    `MP3文件对应页数: ${sortedMp3Files.join(', ')}`;
+                
+                fileInfoDiv.style.display = 'block';
+            } catch (error) {
+                console.error('文件预览错误:', error);
+                fileInfoDiv.style.display = 'none';
+            }
+        }
+        
+        document.getElementById('pptxFile').addEventListener('change', updateFileInfo);
+        document.getElementById('zipFile').addEventListener('change', updateFileInfo);
+        
+        document.getElementById('processBtn').addEventListener('click', async function() {
+            const pptxFile = document.getElementById('pptxFile').files[0];
+            const zipFile = document.getElementById('zipFile').files[0];
+            
+            if (!pptxFile || !zipFile) {
+                alert('请选择PPTX文件和ZIP文件');
+                return;
+            }
+            
+            if (!pptxZipCache || Object.keys(audioMapCache).length === 0) {
+                await updateFileInfo();
+            }
+            
+            const progressDiv = document.getElementById('progress');
+            const progressFill = document.getElementById('progressFill');
+            const status = document.getElementById('status');
+            
+            progressDiv.style.display = 'block';
+            progressFill.style.width = '0%';
+            status.textContent = '正在加载文件...';
+            
+            try {
+                const pptxZip = pptxZipCache;
+                const audioMap = audioMapCache;
+                
+                progressFill.style.width = '20%';
+                status.textContent = '正在生成音频图标...';
+                
+                const iconBase64 = await generateAudioIcon();
+                const iconData = base64ToUint8Array(iconBase64);
+                
+                progressFill.style.width = '40%';
+                status.textContent = '正在处理幻灯片...';
+                
+                const slideFiles = Object.keys(pptxZip.files).filter(name => 
+                    name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
+                ).sort((a, b) => {
+                    const numA = parseInt(a.match(/slide(\d+)/)[1]);
+                    const numB = parseInt(b.match(/slide(\d+)/)[1]);
+                    return numA - numB;
+                });
+                
+                let processedCount = 0;
+                const totalSlides = slideFiles.length;
+                
+                for (const slidePath of slideFiles) {
+                    const match = slidePath.match(/slide(\d+)/);
+                    const pageNum = parseInt(match[1]);
+                    
+                    if (!audioMap[pageNum]) {
+                        processedCount++;
+                        progressFill.style.width = `${40 + (processedCount / totalSlides) * 60}%`;
+                        continue;
+                    }
+                    
+                    status.textContent = `正在处理第 ${pageNum} 页...`;
+                    
+                    const slideXml = await pptxZip.file(slidePath).async('string');
+                    
+                    const relsPath = slidePath.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
+                    const relsXml = pptxZip.file(relsPath)
+                        ? await pptxZip.file(relsPath).async('string')
+                        : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+                    
+                    const audioFile = audioMap[pageNum];
+                    const audioFilename = `media${pageNum}.mp3`;
+                    
+                    const audioData = await audioFile.async('uint8array');
+                    
+                    const result = addAudioElement(slideXml, relsXml, audioFilename, iconBase64, pageNum);
+                    
+                    pptxZip.file(slidePath, result.slideXml);
+                    pptxZip.file(relsPath, result.relsXml);
+                    pptxZip.file(`ppt/media/${audioFilename}`, audioData);
+                    
+                    if (!pptxZip.file('ppt/media/audio_icon.png')) {
+                        pptxZip.file('ppt/media/audio_icon.png', iconData);
+                    }
+                    
+                    processedCount++;
+                    progressFill.style.width = `${40 + (processedCount / totalSlides) * 60}%`;
+                }
+                
+                progressFill.style.width = '95%';
+                status.textContent = '正在修复Content_Types...';
+                
+                const contentTypesXml = await pptxZip.file('[Content_Types].xml').async('string');
+                const fixedContentTypes = fixContentTypes(contentTypesXml);
+                pptxZip.file('[Content_Types].xml', fixedContentTypes);
+                
+                progressFill.style.width = '95%';
+                status.textContent = '正在生成输出文件...';
+                
+                const outputBlob = await pptxZip.generateAsync({ type: 'blob' });
+                
+                const url = URL.createObjectURL(outputBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'output_with_audio.pptx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                progressFill.style.width = '100%';
+                status.textContent = '处理完成！文件已下载。';
+                
+            } catch (error) {
+                status.textContent = `错误: ${error.message}`;
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>

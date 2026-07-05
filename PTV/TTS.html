@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS文稿合成工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js?v=20260705"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js?v=20260705"></script>
+    <link rel="stylesheet" href="../lib/base.css">
+    <style>
+        .back-top {
+            position: fixed;
+            right: 24px;
+            bottom: 30px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #3182ce;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            cursor: pointer;
+            z-index: 999;
+        }
+        .page-item {
+            cursor: pointer;
+            padding: 4px 10px;
+            margin: 2px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e0;
+            display: inline-block;
+            font-size: 13px;
+        }
+        .page-wait {
+            background:#e2e8f0;
+            color:#4a5568;
+        }
+        .page-running {
+            background:#fbbf24;
+            color:#000;
+        }
+        .page-success {
+            background:#38a169;
+            color:#fff;
+            border-color:#38a169;
+        }
+        .page-error {
+            background:#e53e3e;
+            color:#fff;
+            border-color:#e53e3e;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .flex-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        input[type="radio"] {
+            margin-right: 6px;
+        }
+        .border-b {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .text-sm {
+            font-size: 13px;
+        }
+        @media (max-width: 768px) {
+            .grid-2, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            .flex-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="width: 100%; max-width: 900px;">
+        <a href="index.html" class="btn-home">← 返回 PTV 工具集</a>
+        
+        <h1>🔊 JSON文稿批量语音生成工具</h1>
+        
+        <div class="card">
+            <h3>选择合成接口</h3>
+            <div class="flex-row">
+                <label>
+                    <input type="radio" name="apiMode" value="edge" checked>
+                    <span>EdgeTTS 语音接口</span>
+                </label>
+                <label>
+                    <input type="radio" name="apiMode" value="mimo">
+                    <span>Mimo V2.5 小米语音接口</span>
+                </label>
+            </div>
+        </div>
+
+        <div id="edgeConfig" class="card">
+            <h3 class="border-b">EdgeTTS 参数设置</h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>授权令牌 Token</label>
+                    <input id="bearerToken" value="lanxiao" type="text">
+                </div>
+                <div class="form-group">
+                    <label>模型 Model</label>
+                    <input id="ttsModel" value="tts-1" type="text">
+                </div>
+                <div class="form-group">
+                    <label>发音音色 Voice</label>
+                    <input id="edgeVoice" value="zh-CN-XiaoxiaoNeural" type="text">
+                </div>
+                <div class="form-group">
+                    <label>情感风格 Style</label>
+                    <input id="style" value="cheerful" type="text">
+                </div>
+                <div class="form-group">
+                    <label>人物角色 Role</label>
+                    <input id="role" value="YoungAdultFemale" type="text">
+                </div>
+                <div class="form-group">
+                    <label>情感强度</label>
+                    <input id="styleDegree" type="number" step="0.1" value="1.5">
+                </div>
+                <div class="form-group">
+                    <label>朗读语速 Speed</label>
+                    <input id="speed" type="number" step="0.1" value="1.2">
+                </div>
+                <div class="form-group">
+                    <label>音调高低 Pitch</label>
+                    <input id="pitch" type="number" step="0.1" value="1.1">
+                </div>
+            </div>
+            <div class="grid-4" style="margin-top: 15px;">
+                <label>
+                    <input id="removeMarkdown" type="checkbox" checked>
+                    <span class="text-sm">移除Markdown格式</span>
+                </label>
+                <label>
+                    <input id="removeEmoji" type="checkbox" checked>
+                    <span class="text-sm">移除表情符号</span>
+                </label>
+                <label>
+                    <input id="removeUrls" type="checkbox" checked>
+                    <span class="text-sm">移除网页链接</span>
+                </label>
+                <label>
+                    <input id="removeLineBreaks" type="checkbox">
+                    <span class="text-sm">移除换行符</span>
+                </label>
+            </div>
+        </div>
+
+        <div id="mimoConfig" class="card" style="display: none;">
+            <h3 class="border-b">Mimo V2.5 语音配置</h3>
+            <div class="grid-2">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>API密钥</label>
+                    <input id="mimoKey" value="sk-ceo0f4nh9t9jqf9t6ondenqs2gg8u67byhbmhkhy1zbw6uyp" type="text">
+                </div>
+                <div class="form-group">
+                    <label>选择发音音色</label>
+                    <select id="mimoVoice">
+                        <option value="mimo_default">MiMo-默认</option>
+                        <option value="冰糖">冰糖（中文女）</option>
+                        <option value="茉莉">茉莉（中文女）</option>
+                        <option value="苏打">苏打（中文男）</option>
+                        <option value="白桦">白桦（中文男）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>输出音频格式</label>
+                    <select id="audioFormat">
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV无损</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>朗读语气风格提示词</label>
+                    <textarea id="tonePrompt" rows="2">语速轻快，语气自然平稳</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>导入文稿JSON文件</h3>
+            <input type="file" id="jsonFile" accept=".json" class="mb-3">
+            <p class="text-sm" style="color: #718096;">JSON格式示例：<code>[{ "page":1,"script":"文稿内容" }]</code></p>
+            <div class="flex-row" style="margin-top: 15px;">
+                <button id="batchAll" class="btn-success" disabled>批量生成全部语音</button>
+                <button id="zipPack" class="btn-primary" disabled>打包ZIP下载</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h3>页码快速跳转</h3>
+                <div class="flex-row" style="gap: 20px;">
+                    <span>文稿预估总时长：<span id="estimateTotalDuration" style="color: #dd6b20; font-weight: bold;">00:00</span></span>
+                    <span>已生成真实总时长：<span id="totalDuration" style="color: #38a169; font-weight: bold;">00:00</span></span>
+                </div>
+            </div>
+            <div id="pageNavBox" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">页码</th>
+                        <th style="text-align: left;">文稿内容</th>
+                        <th style="width: 100px;">操作</th>
+                        <th style="width: 150px;">字数/预估时长</th>
+                        <th style="width: 200px;">在线试听</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="5" class="text-center" style="color: #a0aec0;">请先导入JSON文件</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
+
+    <script>
+        const EDGE_URL = "https://edgetts-cloudflare-workers-webui-cu6.pages.dev/v1/audio/speech";
+        const MIMO_URL = "https://api.xiaomimimo.com/v1/chat/completions";
+        let scriptList = [];
+        let audioStorage = [];
+        let pageStatus = {};
+        let durationList = {};
+        let estimateDurationList = {};
+
+        document.querySelectorAll('input[name="apiMode"]').forEach(radio => {
+            radio.onchange = () => {
+                const val = document.querySelector('input[name="apiMode"]:checked').value;
+                document.getElementById('edgeConfig').style.display = val === 'edge' ? 'block' : 'none';
+                document.getElementById('mimoConfig').style.display = val === 'mimo' ? 'block' : 'none';
+            }
+        });
+
+        document.getElementById('jsonFile').onchange = e => {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    scriptList = JSON.parse(ev.target.result);
+                    audioStorage = [];
+                    pageStatus = {};
+                    durationList = {};
+                    estimateDurationList = {};
+                    scriptList.forEach((_,i)=>{
+                        pageStatus[i] = "wait";
+                        durationList[i] = 0;
+                    });
+                    renderTable();
+                    renderNav();
+                    updateTotalTime();
+                    updateEstimateTotalTime();
+                    document.getElementById('batchAll').disabled = false;
+                    document.getElementById('zipPack').disabled = true;
+                } catch {
+                    alert("JSON格式解析错误");
+                }
+            }
+            reader.readAsText(e.target.files[0]);
+        }
+
+        function renderNav(){
+            const box = document.getElementById("pageNavBox");
+            box.innerHTML = "";
+            scriptList.forEach((item,idx)=>{
+                const span = document.createElement("span");
+                span.className = "page-item page-wait";
+                span.dataset.index = idx;
+                span.innerText = item.page;
+                span.onclick = ()=>{
+                    const tr = document.querySelector(`tr[data-row-index="${idx}"]`);
+                    if(tr) tr.scrollIntoView({behavior:"smooth"});
+                }
+                box.appendChild(span);
+            })
+            updateNavColor();
+        }
+
+        function updateNavColor(){
+            document.querySelectorAll(".page-item").forEach(el=>{
+                const idx = Number(el.dataset.index);
+                const s = pageStatus[idx];
+                el.className = "page-item";
+                if(s==="wait") el.classList.add("page-wait");
+                if(s==="running") el.classList.add("page-running");
+                if(s==="success") el.classList.add("page-success");
+                if(s==="error") el.classList.add("page-error");
+            })
+        }
+
+        function formatSeconds(totalSec) {
+            const sec = Math.round(totalSec);
+            const min = String(Math.floor(sec / 60)).padStart(2,'0');
+            const s = String(sec % 60).padStart(2,'0');
+            return `${min}:${s}`;
+        }
+
+        function updateTotalTime(){
+            let totalSec = 0;
+            Object.values(durationList).forEach(s=> totalSec += s);
+            document.getElementById('totalDuration').innerText = formatSeconds(totalSec);
+        }
+
+        function updateEstimateTotalTime() {
+            let totalSec = 0;
+            Object.values(estimateDurationList).forEach(s => totalSec += s);
+            document.getElementById('estimateTotalDuration').innerText = formatSeconds(totalSec);
+        }
+
+        function cleanText(text) {
+            let t = text;
+            if(document.getElementById('removeMarkdown').checked) {
+                t = t.replace(/[#*`~>+-]/g, '');
+            }
+            if(document.getElementById('removeEmoji').checked) {
+                t = t.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+            }
+            if(document.getElementById('removeUrls').checked) {
+                t = t.replace(/https?:\/\/\S+/g, '');
+            }
+            if(document.getElementById('removeLineBreaks').checked) {
+                t = t.replace(/[\n\r]/g, '');
+            }
+            return t.replace(/\s+/g, '');
+        }
+
+        function calcWordCountAndEstimate(text) {
+            const clean = cleanText(text);
+            const count = clean.length;
+            const sec = count * 13 / 60;
+            return { count, sec };
+        }
+
+        function renderTable() {
+            const tb = document.getElementById('tableBody');
+            tb.innerHTML = "";
+            scriptList.forEach((item, idx) => {
+                const { count, sec } = calcWordCountAndEstimate(item.script);
+                estimateDurationList[idx] = sec;
+                const estTimeStr = formatSeconds(sec);
+
+                const tr = document.createElement('tr');
+                tr.dataset.rowIndex = idx;
+                tr.innerHTML = `
+                    <td class="text-center">${item.page}</td>
+                    <td style="word-break: break-all;">${item.script}</td>
+                    <td class="text-center">
+                        <button data-index="${idx}" class="btn-success" style="padding: 6px 12px; font-size: 13px;">生成语音</button>
+                    </td>
+                    <td>
+                        <span style="font-weight: bold;">${count}字</span>
+                        <span style="color: #dd6b20; margin-left: 8px;">预估 ${estTimeStr}</span>
+                    </td>
+                    <td>
+                        <audio controls style="width: 100%;">
+                    </td>
+                `;
+                tb.appendChild(tr);
+                const errTr = document.createElement('tr');
+                errTr.innerHTML = `<td colspan="5" style="color: #e53e3e; font-size: 13px; padding: 5px 12px;" class="err-row" data-err-index="${idx}"></td>`;
+                tb.appendChild(errTr);
+            })
+            document.querySelectorAll('.btn-success').forEach(btn => {
+                btn.onclick = () => generateSingle(Number(btn.dataset.index));
+            })
+            updateEstimateTotalTime();
+        }
+
+        function clearError(index) {
+            const errCell = document.querySelector(`.err-row[data-err-index="${index}"] td`);
+            if (errCell) errCell.innerText = "";
+        }
+
+        function buildMimoBody(text) {
+            return {
+                model: "mimo-v2.5-tts",
+                messages: [
+                    { role: "user", content: document.getElementById('tonePrompt').value },
+                    { role: "assistant", content: text }
+                ],
+                audio: {
+                    format: document.getElementById('audioFormat').value,
+                    voice: document.getElementById('mimoVoice').value
+                }
+            }
+        }
+
+        function base64ToBlob(b64, mime) {
+            const binary = atob(b64);
+            const arr = [];
+            for (let i = 0; i < binary.length; i++) {
+                arr.push(binary.charCodeAt(i));
+            }
+            return new Blob([new Uint8Array(arr)], { type: mime });
+        }
+
+        async function generateSingle(index) {
+            const rowData = scriptList[index];
+            const btn = document.querySelector(`button[data-index="${index}"]`);
+            clearError(index);
+            pageStatus[index] = "running";
+            updateNavColor();
+            btn.innerText = "处理中";
+            btn.disabled = true;
+            let blob;
+            try {
+                const mode = document.querySelector('input[name="apiMode"]:checked').value;
+                if (mode === "edge") {
+                    const res = await fetch(EDGE_URL, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${document.getElementById('bearerToken').value}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            model: document.getElementById('ttsModel').value,
+                            voice: document.getElementById('edgeVoice').value,
+                            input: rowData.script,
+                            style: document.getElementById('style').value,
+                            role: document.getElementById('role').value,
+                            styleDegree: Number(document.getElementById('styleDegree').value),
+                            speed: Number(document.getElementById('speed').value),
+                            pitch: Number(document.getElementById('pitch').value),
+                            cleaning_options: {
+                                remove_markdown: document.getElementById('removeMarkdown').checked,
+                                remove_emoji: document.getElementById('removeEmoji').checked,
+                                remove_urls: document.getElementById('removeUrls').checked,
+                                remove_line_breaks: document.getElementById('removeLineBreaks').checked
+                            }
+                        })
+                    })
+                    blob = await res.blob();
+                } else {
+                    const res = await fetch(MIMO_URL, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${document.getElementById('mimoKey').value}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(buildMimoBody(rowData.script))
+                    })
+                    if (!res.ok) throw new Error(`HTTP状态码：${res.status}`);
+                    const json = await res.json();
+                    const b64Data = json.choices[0].message.audio.data;
+                    const fmt = document.getElementById('audioFormat').value;
+                    const mime = fmt === "mp3" ? "audio/mpeg" : "audio/wav";
+                    blob = base64ToBlob(b64Data, mime);
+                }
+                const exist = audioStorage.find(x => x.page === rowData.page);
+                if (exist) audioStorage.splice(audioStorage.indexOf(exist), 1);
+                audioStorage.push({ page: rowData.page, blob });
+                const audioEl = btn.closest("tr").querySelector("audio");
+                const url = URL.createObjectURL(blob);
+                audioEl.src = url;
+                audioEl.onloadedmetadata = () => {
+                    durationList[index] = Math.round(audioEl.duration);
+                    updateTotalTime();
+                };
+                document.getElementById('zipPack').disabled = false;
+                btn.innerText = "再次生成";
+                btn.disabled = false;
+                pageStatus[index] = "success";
+                updateNavColor();
+            } catch (err) {
+                console.error(err);
+                btn.innerText = "生成失败";
+                btn.disabled = false;
+                document.querySelector(`.err-row[data-err-index="${index}"] td`).innerText = "错误信息：" + err.message;
+                pageStatus[index] = "error";
+                updateNavColor();
+                durationList[index] = 0;
+                updateTotalTime();
+            }
+        }
+
+        document.getElementById('batchAll').onclick = async function () {
+            this.disabled = true;
+            for (let i = 0; i < scriptList.length; i++) {
+                if (pageStatus[i] === "success") {
+                    continue;
+                }
+                await generateSingle(i);
+            }
+            this.disabled = false;
+        }
+
+        document.getElementById('zipPack').onclick = async function () {
+            if (audioStorage.length === 0) return alert("暂无生成好的音频");
+            const zip = new JSZip();
+            audioStorage.forEach(item => {
+                zip.file(`page_${item.page}.mp3`, item.blob);
+            })
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            saveAs(zipBlob, "语音文稿.zip");
+        }
+    </script>
+</body>
+</html>
