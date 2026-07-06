@@ -22,6 +22,9 @@
             overflow-y: auto;
             overflow-x: hidden;
         }
+        .card-header {
+            flex-shrink: 0;
+        }
         .grid-3-9 {
             display: grid;
             grid-template-columns: 280px 1fr;
@@ -115,21 +118,19 @@
         <div class="card">
             <h3>系统指令</h3>
             <textarea id="systemPrompt" rows="7">
-你是一名资深企业内训讲师，严格遵守以下规则：
-1. 页面类型区分：
-【封面页】简短开场问候，控制在60字以内，不讲解业务内容；
-【目录页】只罗列章节大纲，字数160字以内，不展开细节；
-【章节标题页】只用一句话引出本节内容，简洁过渡；
-【正文页】撰写口语化培训讲稿，篇幅控制在250~400字。
-
-2. 语言多样化硬性要求：
-每一段过渡语句、开场措辞、承接话术必须避免重复，不要反复使用"接下来""下面""我们来看"这类通用词汇。
-交替使用不同句式：陈述句、设问句、总结句轮换，每页表达方式要有区分，防止全篇文案同质化。
-
-3. 上下文衔接：
-承接上一页收尾内容，同时结合下一页标题自然转折，章节过渡流畅自然。
-
-4. 输出要求：只输出纯口语文稿，不要任何标题、序号、多余注释。
+你身份定位为深耕企业培训领域的资深内训讲师，撰写课件口述讲稿时必须完整执行页面规范、表达约束、逻辑衔接、输出格式四大硬性标准，细则如下：
+一、分页面精细化创作规范
+封面页：仅设计简短问候开场，总文字控制在 60 字上限，全程不植入业务知识、课程要点相关讲解；
+目录页：仅罗列完整课程章节框架，全文不超过 160 字，不延伸解读、不细化任一板块内容；
+章节标题页：仅用独立单句完成板块引入，轻量化实现章节切换，无多余铺垫；
+正文页：输出适配线下授课的口语化讲稿，单页文字稳定在 250-400 字区间。
+二、语言表达强制规范
+全课件所有开篇话术、段落过渡句、章节转场措辞不得重复；禁止反复使用 “接下来”“下面”“我们来看” 等通用衔接词汇。
+每页句式灵活切换，交替运用陈述句、设问句、总结归纳句，各页面行文语态、表述逻辑差异化设计，规避整体文案单调同质化。
+三、内容衔接逻辑要求
+单页文稿需承接上一页收尾核心观点，同时紧扣下一板块主题完成顺滑转场，保障课程前后内容贯通、章节跳转无割裂感。
+四、输出硬性格式要求
+最终仅输出纯现场口述讲稿文本，禁止附带标题、数字序号、注释说明、补充标注等一切无关附加内容。
             </textarea>
         </div>
 
@@ -151,9 +152,11 @@
         </div>
 
         <div class="grid-3-9">
-            <div class="card" style="height: fit-content;">
-                <h3 style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">页面目录</h3>
-                <div id="pageSidebar" class="sidebar-scroll"></div>
+            <div class="card equal-height">
+                <h3 class="card-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">页面目录</h3>
+                <div class="page-content-scroll">
+                    <div id="pageSidebar"></div>
+                </div>
             </div>
 
             <div class="card equal-height">
@@ -310,10 +313,34 @@
                     });
                 for (const filename of slideList) {
                     const xml = await zip.file(filename).async('string');
-                    const textArr = xml.match(/<a:t>(.+?)<\/a:t>/g) || [];
-                    const text = textArr.map(s => s.replace(/<\/?a:t>/g, '')).join('\n').trim();
+                    const paragraphs = xml.split('</a:p>');
+                    const lines = [];
+                    paragraphs.forEach(p => {
+                        const textArr = p.match(/<a:t>(.+?)<\/a:t>/g) || [];
+                        const line = textArr.map(s => s.replace(/<\/?a:t>/g, '')).join('').trim();
+                        if (line) {
+                            lines.push(line);
+                        }
+                    });
+                    const text = lines.join('\n');
                     slidesText.push(text || '空白页');
                 }
+            }
+
+            function getPageTypeColor(type) {
+                const colors = {
+                    '封面页': '#3182ce',
+                    '目录页': '#805ad5',
+                    '章节标题页': '#dd6b20',
+                    '正文页': '#38a169'
+                };
+                return colors[type] || '#718096';
+            }
+
+            function getScriptStatus(script) {
+                if (script === '等待生成逐字稿') return { icon: '⏳', text: '待生成', color: '#718096' };
+                if (script.startsWith('失败')) return { icon: '❌', text: '失败', color: '#e53e3e' };
+                return { icon: '✅', text: '已生成', color: '#38a169' };
             }
 
             function renderSidebarList() {
@@ -323,7 +350,7 @@
                     const item = document.createElement('div');
                     item.className = 'page-item-sidebar';
                     item.dataset.index = i;
-                    item.innerHTML = `第 ${i+1} 页`;
+                    updateSidebarItemContent(item, i);
                     item.onclick = () => {
                         activePageIndex = i;
                         renderSinglePage(i);
@@ -332,6 +359,29 @@
                     pageSidebar.appendChild(item);
                 }
                 highlightSidebar();
+            }
+
+            function updateSidebarItemContent(item, idx) {
+                const pageType = pageTypeList[idx] || '正文页';
+                const status = getScriptStatus(scriptResultList[idx] || '等待生成逐字稿');
+                const typeColor = getPageTypeColor(pageType);
+                item.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 500;">第 ${idx+1} 页</span>
+                        <span style="font-size: 12px; color: ${status.color}; margin-left: 8px;">${status.icon}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 3px; background: ${typeColor}20; color: ${typeColor};">${pageType}</span>
+                        <span style="font-size: 11px; color: ${status.color};">${status.text}</span>
+                    </div>
+                `;
+            }
+
+            function updateSidebarItem(idx) {
+                const items = pageSidebar.querySelectorAll('.page-item-sidebar');
+                if (items[idx]) {
+                    updateSidebarItemContent(items[idx], idx);
+                }
             }
 
             function highlightSidebar() {
@@ -392,12 +442,14 @@
                 typeSel.value = pageTypeList[idx];
                 typeSel.onchange = function () {
                     pageTypeList[idx] = this.value;
+                    updateSidebarItem(idx);
                 };
 
                 const textarea = div.querySelector('.script-box');
                 textarea.value = scriptResultList[idx];
                 textarea.oninput = function () {
                     scriptResultList[idx] = this.value;
+                    updateSidebarItem(idx);
                 };
             }
 
@@ -452,6 +504,7 @@
                         scriptResultList[i] = '失败：' + err.message;
                         fail++;
                     }
+                    updateSidebarItem(i);
                     if (i === activePageIndex) {
                         renderSinglePage(i);
                     }
