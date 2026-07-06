@@ -260,27 +260,31 @@
         });
 
         function fixJsonStringNewlines(text) {
-            let result = '';
+            const chars = text.split('');
+            const result = [];
             let inString = false;
             let escape = false;
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
                 if (escape) {
-                    result += char;
+                    result.push(char);
                     escape = false;
                 } else if (char === '\\') {
-                    result += char;
+                    result.push(char);
                     escape = true;
                 } else if (char === '"') {
                     inString = !inString;
-                    result += char;
+                    result.push(char);
                 } else if (inString && (char === '\n' || char === '\r')) {
-                    result += '\\n';
+                    if (char === '\r' && chars[i + 1] === '\n') {
+                        i++;
+                    }
+                    result.push('\\', 'n');
                 } else {
-                    result += char;
+                    result.push(char);
                 }
             }
-            return result;
+            return result.join('');
         }
 
         document.getElementById('jsonFile').onchange = e => {
@@ -366,7 +370,7 @@
         }
 
         function cleanText(text) {
-            let t = text;
+            let t = text || '';
             if(document.getElementById('removeMarkdown').checked) {
                 t = t.replace(/[#*`~>+-]/g, '');
             }
@@ -377,9 +381,9 @@
                 t = t.replace(/https?:\/\/\S+/g, '');
             }
             if(document.getElementById('removeLineBreaks').checked) {
-                t = t.replace(/[\n\r]/g, '');
+                t = t.replace(/[\n\r]/g, ' ');
             }
-            return t.replace(/\s+/g, '');
+            return t.replace(/\s+/g, ' ').trim();
         }
 
         function calcWordCountAndEstimate(text) {
@@ -389,6 +393,15 @@
             return { count, sec };
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&#039;');
+        }
+
         function renderTable() {
             const tb = document.getElementById('tableBody');
             tb.innerHTML = "";
@@ -396,12 +409,13 @@
                 const { count, sec } = calcWordCountAndEstimate(item.script);
                 estimateDurationList[idx] = sec;
                 const estTimeStr = formatSeconds(sec);
+                const safeScript = escapeHtml(item.script);
 
                 const tr = document.createElement('tr');
                 tr.dataset.rowIndex = idx;
                 tr.innerHTML = `
                     <td class="text-center">${item.page}</td>
-                    <td style="word-break: break-all;">${item.script}</td>
+                    <td style="word-break: break-all;">${safeScript}</td>
                     <td class="text-center">
                         <button data-index="${idx}" class="btn-success" style="padding: 6px 12px; font-size: 13px;">生成语音</button>
                     </td>
@@ -419,7 +433,12 @@
                 tb.appendChild(errTr);
             })
             document.querySelectorAll('.btn-success').forEach(btn => {
-                btn.onclick = () => generateSingle(Number(btn.dataset.index));
+                const idx = Number(btn.dataset.index);
+                if (isNaN(idx)) {
+                    console.error('按钮data-index无效:', btn.dataset.index);
+                    return;
+                }
+                btn.onclick = () => generateSingle(idx);
             })
             updateEstimateTotalTime();
         }
@@ -455,6 +474,10 @@
         async function generateSingle(index) {
             const rowData = scriptList[index];
             const btn = document.querySelector(`button[data-index="${index}"]`);
+            if (!btn) {
+                console.error('未找到按钮，索引:', index);
+                return;
+            }
             clearError(index);
             pageStatus[index] = "running";
             updateNavColor();
@@ -532,14 +555,31 @@
         }
 
         document.getElementById('batchAll').onclick = async function () {
-            this.disabled = true;
+            const btn = this;
+            btn.disabled = true;
+            btn.innerText = "生成中...";
+            let successCount = 0;
+            let failCount = 0;
             for (let i = 0; i < scriptList.length; i++) {
                 if (pageStatus[i] === "success") {
+                    successCount++;
                     continue;
                 }
-                await generateSingle(i);
+                try {
+                    await generateSingle(i);
+                    if (pageStatus[i] === "success") {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (err) {
+                    console.error('批量生成第' + (i+1) + '页失败:', err);
+                    failCount++;
+                }
             }
-            this.disabled = false;
+            btn.disabled = false;
+            btn.innerText = "批量生成全部语音";
+            alert(`批量生成完成！成功: ${successCount} 个，失败: ${failCount} 个`);
         }
 
         document.getElementById('zipPack').onclick = async function () {
