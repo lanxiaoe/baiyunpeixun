@@ -259,11 +259,43 @@
             }
         });
 
+        function fixJsonStringNewlines(text) {
+            let result = '';
+            let inString = false;
+            let escape = false;
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                if (escape) {
+                    result += char;
+                    escape = false;
+                } else if (char === '\\') {
+                    result += char;
+                    escape = true;
+                } else if (char === '"') {
+                    inString = !inString;
+                    result += char;
+                } else if (inString && (char === '\n' || char === '\r')) {
+                    result += '\\n';
+                } else {
+                    result += char;
+                }
+            }
+            return result;
+        }
+
         document.getElementById('jsonFile').onchange = e => {
             const reader = new FileReader();
             reader.onload = ev => {
                 try {
-                    scriptList = JSON.parse(ev.target.result);
+                    let text = ev.target.result;
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(text);
+                    } catch {
+                        text = fixJsonStringNewlines(text);
+                        parsed = JSON.parse(text);
+                    }
+                    scriptList = parsed;
                     audioStorage = [];
                     pageStatus = {};
                     durationList = {};
