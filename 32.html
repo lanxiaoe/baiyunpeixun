@@ -170,50 +170,44 @@ const state = {
   dragging: null,
   dragStart: {x: 0, y: 0, ox: 0, oy: 0, ow: 0, oh: 0},
   touchStartX:0, touchStartY:0,
-  // 缓存blob url，后续统一释放避免内存泄漏
   blobUrls: []
 }
 const $ = s => document.querySelector(s)
 const mmToPx = (mm, dpi) => Math.round(mm * dpi / 25.4)
-// 判断是否file协议
 const isFileProtocol = location.protocol === 'file:';
-// 核心修改：双策略加载图片，file协议优先blob url，http下兼容两种
-function loadImage(file) {
-  return new Promise((resolve) => {
-    const fileName = file.name.replace(/\.[^.]+$/, "");
-    const img = new Image();
-    let objectUrl = null;
 
-    function success() {
-      state.blobUrls.push(objectUrl);
-      resolve({ name: fileName, img: img });
-    }
-    function fail() {
-      // 降级FileReader兜底
-      if (!window.FileReader) return resolve(null);
+// 重构后的图片加载函数，纯回调，双方案兜底
+function loadImageSafe(file, callback) {
+  const fileName = file.name.replace(/\.[^.]+$/, "");
+  const img = new Image();
+  let objUrl = URL.createObjectURL(file);
+  state.blobUrls.push(objUrl);
+
+  img.onload = function() {
+    callback(true, {name: fileName, img: img});
+  };
+  img.onerror = function() {
+    // blob加载失败，仅http协议尝试FileReader降级；file协议直接失败提示
+    if(!isFileProtocol && window.FileReader) {
       const fr = new FileReader();
-      fr.readAsDataURL(file);
-      fr.onload = () => {
+      fr.onload = function(){
         const img2 = new Image();
-        img2.onload = () => resolve({ name: fileName, img: img2 });
+        img2.onload = ()=>callback(true, {name:fileName, img:img2});
+        img2.onerror = ()=>callback(false, null);
         img2.src = fr.result;
       }
-      fr.onerror = () => resolve(null);
+      fr.onerror = ()=>callback(false, null);
+      fr.readAsDataURL(file);
+    } else {
+      callback(false, null);
     }
-
-    // file协议优先用createObjectURL，绕开FileReader跨域沙箱限制
-    objectUrl = URL.createObjectURL(file);
-    img.onload = success;
-    img.onerror = fail;
-    img.src = objectUrl;
-  })
+  }
+  img.src = objUrl;
 }
 
-// 页面卸载统一释放blob资源
+// 页面卸载释放blob
 window.addEventListener('beforeunload', () => {
-  state.blobUrls.forEach(url => {
-    try { URL.revokeObjectURL(url) } catch(e){}
-  })
+  state.blobUrls.forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}})
 })
 
 function initCanvas(w, h) {
@@ -297,12 +291,14 @@ function renderA4PrintPage() {
     }
   }
 }
+
 function exportA4Pdf() {
   const printCanvas = $("#printCanvas");
   if (printCanvas.width <= 10) {
     alert("请先生成A4整页排版再导出PDF");
     return;
-  }
+ 
+}
   const imgData = printCanvas.toDataURL("image/png", 1.0);
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
@@ -418,6 +414,7 @@ function updateParamPanel() {
   $("#txtY").innerText = Math.round(state.textPos.y);
   $("#fontSize").innerText = state.fontSize;
 }
+
 function renderFileList() {
   const listDom = $("#fileList");
   listDom.innerHTML = "";
@@ -439,28 +436,43 @@ function renderFileList() {
 }
 
 window.onload = function() {
-  $("#templateInput").addEventListener("change", async function() {
+  // 模板上传
+  $("#templateInput").addEventListener("change", function() {
     const file = this.files[0];
-    if (!file) return;
-    const res = await loadImage(file);
-    if (res) {
-      state.templateImg = res.img;
-      initCanvas(state.templateImg.width, state.templateImg.height);
-    }
-    this.value = "";
+    if(!file) return;
+    loadImageSafe(file, function(success, res){
+      if(success){
+        state.templateImg = res.img;
+        initCanvas(state.templateImg.width, state.templateImg.height);
+      }else{
+        alert("模板图片加载失败，请更换图片重试");
+      }
+    })
+    this.value = '';
   })
 
-  $("#avatarInput").addEventListener("change", async function() {
+  // 头像批量上传
+  $("#avatarInput").addEventListener("change", function() {
     const files = Array.from(this.files);
-    if (files.length === 0) return;
-    for (const f of files) {
-      const res = await loadImage(f);
-      if (res) state.avatarList.push(res);
-    }
-    renderFileList();
-    drawFinal();
-    renderDragBox();
-    this.value = "";
+    if(files.length === 0) return;
+    let finishCount = 0;
+    files.forEach(f=>{
+      loadImageSafe(f, function(success, res){
+        finishCount++;
+        if(success){
+          state.avatarList.push(res);
+        }else{
+          alert(`图片${f.name}加载失败，已跳过`);
+        }
+        // 全部加载完成后刷新界面
+        if(finishCount >= files.length){
+          renderFileList();
+          drawFinal();
+          renderDragBox();
+        }
+      })
+    })
+    this.value = '';
   })
 
   $("#genBtn").onclick = drawFinal;
