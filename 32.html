@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>工牌合成器-http/file双协议兼容上传</title>
+<script>
+!function(){function e(e,t){this.l=e,this.n=t,this.j=[],this.o=[],this.k=[],this.i=[],this.g=0,this.f=0,this.m=0,this.h=0,this.b=0,this.a=[]}e.prototype={p:function(){return this.j},q:function(){return this.o},r:function(){return this.k},s:function(){return this.i},t:function(){return this.g},u:function(){return this.f},v:function(){return this.m},w:function(){return this.h},x:function(){return this.b},y:function(){return this.a},z:function(e,t){this.j.push([e,t])},A:function(e,t){this.o.push([e,t])},B:function(e,t){this.k.push([e,t])},C:function(e,t){return this.i.push([e,t])},D:function(e){this.g=e},E:function(e){this.f=e},F:function(e){this.m=e},G:function(e){this.h=e},H:function(e){this.b=e},I:function(e){this.a.push(e)}};var t=function(){return new e(0,0)};window.jsPDF=function(){function e(e,t,n){this.internal=t(),this.internal.D(210),this.internal.E(297),this.internal.F(72),this.internal.G(72),this.internal.H(0),this.internal.I([]),this.pageSize={width:210,height:297},this.pages=[],this.currentPageInfo={pageNumber:1,margin:{left:10,top:10,right:10,bottom:10}},this.content=[],this.headerContent=[],this.footerContent=[],this.fonts={},this.fontName="helvetica",this.fontStyle="normal",this.fontSize=16,this.textColor="#000000",this.lineWidth=0.2}return e.prototype={addImage:function(e,t,n,i,r,o,s,a){var l=this.internal;l.z(["q"]),l.z([r,o,"cm"]),l.z([s,0,0,s,a,"cm"]),l.z(["/Im"+this.internal.p().length+" Do"]),l.z(["Q"]);var d=new Uint8Array(e),u=d.length,m=[];for(var f=0;f<u;f+=1024){var g=d.slice(f,f+1024);m.push(String.fromCharCode.apply(null,g))}var h=m.join(""),v=l.p().length;l.A([v,0]),l.B([0,0]),l.C([0,0]),l.z(["/Im"+v+" "+v+" 0 R"]),l.I({data:h,width:n,height:i,format:t});var w=l.y();return w.push({type:"image",index:v}),this},save:function(e){var t=this.output("blob");if(navigator.msSaveBlob)return navigator.msSaveBlob(t,e);var n=URL.createObjectURL(t),i=document.createElement("a");return i.href=n,i.download=e,document.body.appendChild(i),i.click(),document.body.removeChild(i),URL.revokeObjectURL(n),this},output:function(e){var t=this.internal,n=t.p(),i=t.q(),r=t.r(),o=t.s(),s=t.y(),a=1,l="%PDF-1.3\n",d=[];d.push(l);var u=d.length+1;d.push(a+" 0 obj\n<< /Type /Catalog /Pages "+(a+1)+" 0 R >>\nendobj\n"),a+=1,d.push(a+" 0 obj\n<< /Type /Pages /Kids ["+(a+1)+" 0 R] /Count 1 >>\nendobj\n"),a+=1,d.push(a+" 0 obj\n<< /Type /Page /Parent "+(a-1)+" 0 R /MediaBox [0 0 595 842] /Contents "+(a+1)+" 0 R /Resources << /XObject << >> >> >>\nendobj\n"),a+=1,d.push(a+" 0 obj\n<< /Length 0 >>\nstream\nendstream\nendobj\n");for(var f=0;f<n.length;f++){var g=n[f][0],h=n[f][1],v=d.length+1;d.push(v+" 0 obj\n<< /Width "+g+" /Height "+h+" /BitsPerComponent 8 /ColorSpace /DeviceRGB >>\nstream\n"+h+"\nendstream\nendobj\n"),a+=1}for(var w=0;w<d.length;w++)d[w]=d[w].replace(/\n/g,"\r\n");var m=d.join("");if(e==="blob")return new Blob([m],{type:"application/pdf"});return m}}(),window.jsPDF.API=jsPDF.prototype}();
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, "Microsoft Yahei", sans-serif}
+body{background:#f4f6f9;padding:12px 12px 40px}
+.wrap{max-width:1400px;margin:0 auto}
+@media(min-width:768px){
+  .wrap{display:flex;gap:20px;align-items:flex-start}
+  .left-panel{flex:0 0 320px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;z-index:9}
+  .right-area{flex:1;}
+}
+.left-panel{
+  background:#fff;padding:16px;border-radius:8px;box-shadow:0 1px 6px #ddd;
+  margin-bottom:16px;
+}
+.right-area{background:#fff;padding:16px;border-radius:8px;box-shadow:0 1px 6px #ddd}
+.upload-item{margin-bottom:16px}
+h4{margin:8px 0 10px;color:#222;font-size:16px}
+.file-btn{
+  display:block;width:100%;padding:10px 8px;background:#f0f4fa;border:1px solid #dde6f4;
+  border-radius:6px;text-align:center;cursor:pointer;color:#2374e1;font-size:14px;user-select:none;
+}
+.input-hidden{
+  position:absolute;
+  width:1px;height:1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+  margin:-1px;border:0;padding:0;
+}
+.cfg-item{margin:6px 0;font-size:14px;display:flex;gap:6px}
+.cfg-item span{width:80px;color:#555}
+.cfg-item b{color:#d03030;flex:1}
+.input-row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.input-row label{font-size:14px;color:#555;width:70px}
+.input-row input{flex:1;min-width:90px;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:14px}
+.btn{padding:9px 14px;background:#2374e1;color:#fff;border:none;border-radius:4px;cursor:pointer;margin:6px 2px;font-size:14px}
+.btn:disabled{background:#b4c8e8;cursor:not-allowed}
+.btn-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.canvas-container{position:relative;margin-top:10px;width:100%}
+#cardCanvas{border:1px solid #ccc;width:100%;height:auto;display:block}
+.drag-layer{
+  position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;
+  touch-action:pan-y;
+}
+.drag-box{
+  position:absolute;border:2px dashed #f43f5e;background:rgba(244,63,94,0.1);
+  pointer-events:auto;touch-action:none;cursor:move;-webkit-user-select:none;user-select:none;
+}
+.resize{position:absolute;width:10px;height:10px;background:#f43f5e;border:1px solid #fff;z-index:10}
+.resize-br{right:-5px;bottom:-5px;cursor:nwse-resize}
+.text-drag{
+  border:2px dashed #3b82f6;background:rgba(59,130,246,0.1);min-width:100px;color:#3b82f6;
+  padding:4px;font-size:14px;touch-action:none;
+}
+.preview-box{margin-top:16px;padding:12px;background:#fafafa;border:1px dashed #ddd;border-radius:8px}
+#printCanvas{border:1px solid #999;width:100%;height:auto;display:block}
+.tip-text{color:#666;font-size:13px;margin:4px 0}
+.file-list{max-height:180px;overflow-y:auto;margin-top:8px;border:1px solid #eee;border-radius:4px;background:#fff}
+.file-item{padding:6px 10px;font-size:14px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+.file-item:last-child{border-bottom:none}
+.del-btn{padding:3px 8px;font-size:12px;border:none;background:#ef4444;color:#fff;border-radius:3px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="left-panel">
+    <div class="upload-item">
+      <h4>1.上传工牌模板底图</h4>
+      <label class="file-btn" for="templateInput">点击选择模板图片</label>
+      <input type="file" id="templateInput" class="input-hidden" accept="image/*">
+      <div class="tip-text">本地file双击打开/HTTP服务器打开均可上传</div>
+    </div>
+<div class="upload-item">
+      <h4>2.批量上传头像照片</h4>
+      <label class="file-btn" for="avatarInput">点击选择头像图片</label>
+      <input type="file" id="avatarInput" class="input-hidden" accept="image/*" multiple>
+      <div class="tip-text">文件名自动作为工牌姓名，多次选择追加列表</div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+
+    <h4>工牌尺寸配置</h4>
+    <div class="input-row">
+      <label>宽度mm</label>
+      <input type="number" id="cardWidthMm" value="54">
+    </div>
+    <div class="input-row">
+      <label>高度mm</label>
+      <input type="number" id="cardHeightMm" value="86">
+    </div>
+    <div class="input-row">
+      <label>打印DPI</label>
+      <input type="number" id="dpi" value="300">
+    </div>
+
+    <h4>A4竖版排版配置</h4>
+    <div class="input-row">
+      <label>页边距mm</label>
+      <input type="number" id="pageMarginMm" value="10">
+    </div>
+    <div class="input-row">
+      <label>横向列数</label>
+      <input type="number" id="cols" value="2">
+    </div>
+    <div class="input-row">
+      <label>纵向行数</label>
+      <input type="number" id="rows" value="5">
+    </div>
+
+    <h4>头像框像素坐标</h4>
+    <div class="cfg-item"><span>X：</span><b id="avtX">0</b></div>
+    <div class="cfg-item"><span>Y：</span><b id="avtY">0</b></div>
+    <div class="cfg-item"><span>宽：</span><b id="avtW">0</b></div>
+    <div class="cfg-item"><span>高：</span><b id="avtH">0</b></div>
+
+    <h4>姓名文字坐标</h4>
+    <div class="cfg-item"><span>X：</span><b id="txtX">0</b></div>
+    <div class="cfg-item"><span>Y：</span><b id="txtY">0</b></div>
+    <div class="cfg-item"><span>字号：</span><b id="fontSize">26</b></div>
+
+    <div class="btn-group">
+      <button class="btn" id="genBtn">刷新单张预览</button>
+      <button class="btn" id="copyCfgBtn">复制坐标配置</button>
+      <button class="btn" id="renderPrintBtn">生成A4整页排版</button>
+      <button class="btn" id="downloadPdfBtn">导出A4 PDF打印文件</button>
+    </div>
+  </div>
+
+  <div class="right-area">
+    <h4>单张工牌预览｜红框拖动缩放、蓝框拖动改姓名位置</h4>
+    <div class="canvas-container" id="canvasWrap">
+      <canvas id="cardCanvas"></canvas>
+      <div class="drag-layer" id="dragLayer"></div>
+    </div>
+
+    <div class="preview-box">
+      <h4>A4整页打印预览</h4>
+      <canvas id="printCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const { jsPDF } = window.jspdf;
+const CARD_PRINT_CONFIG = {
+  cardWidthMm: 54,
+  cardHeightMm: 86,
+  dpi: 300,
+  pageMarginMm: 10,
+  cols: 2,
+  rows: 5
+}
+const state = {
+  templateImg: null,
+  avatarList: [],
+  canvas: null,
+  ctx: null,
+  avatarRect: {x: 60, y: 60, w: 120, h: 120},
+  textPos: {x: 220, y: 130},
+  fontSize: 26,
+  fontColor: "#111111",
+  font: "bold Microsoft Yahei",
+  dragging: null,
+  dragStart: {x: 0, y: 0, ox: 0, oy: 0, ow: 0, oh: 0},
+  touchStartX:0, touchStartY:0,
+  blobUrls: []
+}
+const $ = s => document.querySelector(s)
+const mmToPx = (mm, dpi) => Math.round(mm * dpi / 25.4)
+const isFileProtocol = location.protocol === 'file:';
+
+// 重构后的图片加载函数，纯回调，双方案兜底
+function loadImageSafe(file, callback) {
+  const fileName = file.name.replace(/\.[^.]+$/, "");
+  const img = new Image();
+  let objUrl = URL.createObjectURL(file);
+  state.blobUrls.push(objUrl);
+
+  img.onload = function() {
+    callback(true, {name: fileName, img: img});
+  };
+  img.onerror = function() {
+    // blob加载失败，仅http协议尝试FileReader降级；file协议直接失败提示
+    if(!isFileProtocol && window.FileReader) {
+      const fr = new FileReader();
+      fr.onload = function(){
+        const img2 = new Image();
+        img2.onload = ()=>callback(true, {name:fileName, img:img2});
+        img2.onerror = ()=>callback(false, null);
+        img2.src = fr.result;
+      }
+      fr.onerror = ()=>callback(false, null);
+      fr.readAsDataURL(file);
+    } else {
+      callback(false, null);
+    }
+  }
+  img.src = objUrl;
+}
+
+// 页面卸载释放blob
+window.addEventListener('beforeunload', () => {
+  state.blobUrls.forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}})
+})
+
+function initCanvas(w, h) {
+  state.canvas = $("#cardCanvas");
+  state.canvas.width = w;
+  state.canvas.height = h;
+  state.ctx = state.canvas.getContext("2d");
+  renderDragBox();
+  updateParamPanel();
+  drawFinal();
+}
+
+function drawFinal() {
+  if (!state.templateImg || !state.ctx) return;
+  const ctx = state.ctx;
+  ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+  ctx.drawImage(state.templateImg, 0, 0);
+  if (state.avatarList.length === 0) return;
+  const firstItem = state.avatarList[0];
+  if (!firstItem.img.complete) return;
+  const rect = state.avatarRect;
+  ctx.drawImage(firstItem.img, rect.x, rect.y, rect.w, rect.h);
+  ctx.font = `${state.fontSize}px ${state.font}`;
+  ctx.fillStyle = state.fontColor;
+  ctx.fillText(firstItem.name, state.textPos.x, state.textPos.y);
+}
+
+function renderA4PrintPage() {
+  if (!state.templateImg) { alert("请先上传工牌模板底图"); return; }
+  if (state.avatarList.length === 0) { alert("请先上传头像图片"); return; }
+  CARD_PRINT_CONFIG.cardWidthMm = Number($("#cardWidthMm").value);
+  CARD_PRINT_CONFIG.cardHeightMm = Number($("#cardHeightMm").value);
+  CARD_PRINT_CONFIG.dpi = Number($("#dpi").value);
+  CARD_PRINT_CONFIG.pageMarginMm = Number($("#pageMarginMm").value);
+  CARD_PRINT_CONFIG.cols = Number($("#cols").value);
+  CARD_PRINT_CONFIG.rows = Number($("#rows").value);
+
+  const dpi = CARD_PRINT_CONFIG.dpi;
+  const cardW = mmToPx(CARD_PRINT_CONFIG.cardWidthMm, dpi);
+  const cardH = mmToPx(CARD_PRINT_CONFIG.cardHeightMm, dpi);
+  const margin = mmToPx(CARD_PRINT_CONFIG.pageMarginMm, dpi);
+  const cols = CARD_PRINT_CONFIG.cols;
+  const rows = CARD_PRINT_CONFIG.rows;
+  const a4W = mmToPx(210, dpi);
+  const a4H = mmToPx(297, dpi);
+
+  const printCanvas = $("#printCanvas");
+  printCanvas.width = a4W;
+  printCanvas.height = a4H;
+  const pctx = printCanvas.getContext("2d");
+  pctx.fillStyle = "#ffffff";
+  pctx.fillRect(0, 0, a4W, a4H);
+
+  const gapX = cols <= 1 ? 0 : (a4W - margin * 2 - cardW * cols) / (cols - 1);
+  const gapY = rows <= 1 ? 0 : (a4H - margin * 2 - cardH * rows) / (rows - 1);
+  let idx = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (idx >= state.avatarList.length) break;
+      const x = Math.round(margin + c * (cardW + gapX));
+      const y = Math.round(margin + r * (cardH + gapY));
+      pctx.drawImage(state.templateImg, x, y, cardW, cardH);
+      const avatarItem = state.avatarList[idx];
+      const scaleX = cardW / state.templateImg.width;
+      const scaleY = cardH / state.templateImg.height;
+      const avtX = x + state.avatarRect.x * scaleX;
+      const avtY = y + state.avatarRect.y * scaleY;
+      const avtW = state.avatarRect.w * scaleX;
+      const avtH = state.avatarRect.h * scaleY;
+      pctx.drawImage(avatarItem.img, avtX, avtY, avtW, avtH);
+      const txtX = x + state.textPos.x * scaleX;
+      const txtY = y + state.textPos.y * scaleY;
+      const printFontSize = state.fontSize * Math.min(scaleX, scaleY);
+      pctx.font = `${printFontSize}px ${state.font}`;
+      pctx.fillStyle = state.fontColor;
+      pctx.fillText(avatarItem.name, txtX, txtY);
+      pctx.strokeStyle = "#cccccc";
+      pctx.lineWidth = 1;
+      pctx.strokeRect(x, y, cardW, cardH);
+      idx++;
+    }
+  }
+}
+
+function exportA4Pdf() {
+  const printCanvas = $("#printCanvas");
+  if (printCanvas.width <= 10) {
+    alert("请先生成A4整页排版再导出PDF");
+    return;
+ 
+}
+  const imgData = printCanvas.toDataURL("image/png", 1.0);
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
+  pdf.save("工牌_A4批量打印.pdf");
+}
+
+const getScale = () => state.canvas.offsetWidth / state.canvas.width || 1;
+
+function renderDragBox() {
+  const layer = $("#dragLayer");
+  layer.innerHTML = "";
+  const scale = getScale();
+  const rect = state.avatarRect;
+  const avtBox = document.createElement("div");
+  avtBox.className = "drag-box";
+  avtBox.style.left = rect.x * scale + "px";
+  avtBox.style.top = rect.y * scale + "px";
+  avtBox.style.width = rect.w * scale + "px";
+  avtBox.style.height = rect.h * scale + "px";
+  avtBox.dataset.type = "avatar";
+  const resizeDot = document.createElement("div");
+  resizeDot.className = "resize resize-br";
+  resizeDot.dataset.type = "resize";
+  avtBox.appendChild(resizeDot);
+  layer.appendChild(avtBox);
+
+  const txtBox = document.createElement("div");
+  txtBox.className = "drag-box text-drag";
+  txtBox.style.left = state.textPos.x * scale + "px";
+  txtBox.style.top = state.textPos.y * scale + "px";
+  txtBox.innerText = state.avatarList[0]?.name || "姓名拖拽框";
+  txtBox.dataset.type = "text";
+  layer.appendChild(txtBox);
+  bindDrag();
+}
+
+function bindDrag() {
+  const layer = $("#dragLayer");
+  layer.onmousedown = startDrag;
+  layer.addEventListener('touchstart', touchStartHandler, { passive: false });
+}
+function touchStartHandler(e) {
+  state.touchStartX = e.touches[0].clientX;
+  state.touchStartY = e.touches[0].clientY;
+  const touch = e.touches[0];
+  layer.dispatchEvent(new MouseEvent("mousedown", { clientX: touch.clientX, clientY: touch.clientY }));
+}
+function startDrag(e) {
+  const target = e.target.closest(".drag-box");
+  const isResize = e.target.classList.contains("resize");
+  if (!target && !isResize) return;
+  state.dragging = isResize ? "resize" : target.dataset.type;
+  const scale = getScale();
+  state.dragStart.x = e.clientX;
+  state.dragStart.y = e.clientY;
+  if (state.dragging === "avatar" || state.dragging === "resize") {
+    state.dragStart.ox = state.avatarRect.x;
+    state.dragStart.oy = state.avatarRect.y;
+    state.dragStart.ow = state.avatarRect.w;
+    state.dragStart.oh = state.avatarRect.h;
+  } else if (state.dragging === "text") {
+    state.dragStart.ox = state.textPos.x;
+    state.dragStart.oy = state.textPos.y;
+  }
+  document.addEventListener("mousemove", moveDrag);
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("touchmove", touchMoveHandler, { passive: false });
+  document.addEventListener("touchend", endDrag);
+}
+function touchMoveHandler(e) {
+  const touchX = e.touches[0].clientX;
+  const touchY = e.touches[0].clientY;
+  const dx = Math.abs(touchX - state.touchStartX);
+  const dy = Math.abs(touchY - state.touchStartY);
+  if (dx > dy) e.preventDefault();
+  const touch = e.touches[0];
+  document.dispatchEvent(new MouseEvent("mousemove", { clientX: touch.clientX, clientY: touch.clientY }));
+}
+function moveDrag(e) {
+  const dx = e.clientX - state.dragStart.x;
+  const dy = e.clientY - state.dragStart.y;
+  const scale = getScale();
+  const rdx = dx / scale;
+  const rdy = dy / scale;
+  if (state.dragging === "avatar") {
+    state.avatarRect.x = Math.max(0, state.dragStart.ox + rdx);
+    state.avatarRect.y = Math.max(0, state.dragStart.oy + rdy);
+  } else if (state.dragging === "text") {
+    state.textPos.x = Math.max(0, state.dragStart.ox + rdx);
+    state.textPos.y = Math.max(20, state.dragStart.oy + rdy);
+  } else if (state.dragging === "resize") {
+    state.avatarRect.w = Math.max(30, state.dragStart.ow + rdx);
+    state.avatarRect.h = Math.max(30, state.dragStart.oh + rdy);
+  }
+  renderDragBox();
+  updateParamPanel();
+}
+function endDrag() {
+  state.dragging = null;
+  document.removeEventListener("mousemove", moveDrag);
+  document.removeEventListener("mouseup", endDrag);
+  document.removeEventListener("touchmove", touchMoveHandler);
+  document.removeEventListener("touchend", endDrag);
+  drawFinal();
+}
+
+function updateParamPanel() {
+  $("#avtX").innerText = Math.round(state.avatarRect.x);
+  $("#avtY").innerText = Math.round(state.avatarRect.y);
+  $("#avtW").innerText = Math.round(state.avatarRect.w);
+  $("#avtH").innerText = Math.round(state.avatarRect.h);
+  $("#txtX").innerText = Math.round(state.textPos.x);
+  $("#txtY").innerText = Math.round(state.textPos.y);
+  $("#fontSize").innerText = state.fontSize;
+}
+
+function renderFileList() {
+  const listDom = $("#fileList");
+  listDom.innerHTML = "";
+  state.avatarList.forEach((item, idx) => {
+    const div = document.createElement("div");
+    div.className = "file-item";
+    div.innerHTML = `<span>${idx+1}. ${item.name}</span><button class="del-btn" data-i="${idx}">删除</button>`;
+    listDom.appendChild(div);
+  });
+  listDom.querySelectorAll(".del-btn").forEach(btn => {
+    btn.onclick = () => {
+      const delIdx = Number(btn.dataset.i);
+      state.avatarList.splice(delIdx, 1);
+      renderFileList();
+      drawFinal();
+      renderDragBox();
+    }
+  })
+}
+
+window.onload = function() {
+  // 模板上传
+  $("#templateInput").addEventListener("change", function() {
+    const file = this.files[0];
+    if(!file) return;
+    loadImageSafe(file, function(success, res){
+      if(success){
+        state.templateImg = res.img;
+        initCanvas(state.templateImg.width, state.templateImg.height);
+      }else{
+        alert("模板图片加载失败，请更换图片重试");
+      }
+    })
+    this.value = '';
+  })
+
+  // 头像批量上传
+  $("#avatarInput").addEventListener("change", function() {
+    const files = Array.from(this.files);
+    if(files.length === 0) return;
+    let finishCount = 0;
+    files.forEach(f=>{
+      loadImageSafe(f, function(success, res){
+        finishCount++;
+        if(success){
+          state.avatarList.push(res);
+        }else{
+          alert(`图片${f.name}加载失败，已跳过`);
+        }
+        // 全部加载完成后刷新界面
+        if(finishCount >= files.length){
+          renderFileList();
+          drawFinal();
+          renderDragBox();
+        }
+      })
+    })
+    this.value = '';
+  })
+
+  $("#genBtn").onclick = drawFinal;
+  $("#copyCfgBtn").onclick = async () => {
+    const cfg = JSON.stringify({
+      avatarRect: state.avatarRect,
+      textPos: state.textPos,
+      fontSize: state.fontSize,
+      fontColor: state.fontColor,
+      cardPrintConfig: CARD_PRINT_CONFIG
+    }, null, 2);
+    await navigator.clipboard.writeText(cfg);
+    alert("坐标配置已复制");
+  }
+  $("#renderPrintBtn").onclick = renderA4PrintPage;
+  $("#downloadPdfBtn").onclick = exportA4Pdf;
+}
+</script>
+</body>
+</html>
