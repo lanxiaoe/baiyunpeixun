@@ -1,6 +1,10 @@
 name = "tz-app"
 compatibility_date = "2024-01-01"
 
+[[kv_namespaces]]
+binding = "DB"
+id = "REPLACE_WITH_YOUR_KV_ID"
+
 [[d1_databases]]
 binding = "D1_DB"
 database_name = "tz-datasource"
