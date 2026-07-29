@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>排班表固定格式生成器 Tab分隔版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .header {
+            max-width: 1400px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .header h1 {
+            font-size: 22px;
+            color: #222;
+            flex: 1;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background-color: #4080ff;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background-color: #3366cc;
+        }
+        .btn-success {
+            background-color: #00b42a;
+            color: #fff;
+        }
+        .btn-success:hover {
+            background-color: #009a23;
+        }
+        .btn-warning {
+            background-color: #ff7d00;
+            color: #fff;
+        }
+        .btn-warning:hover {
+            background-color: #e67100;
+        }
+        .btn-danger {
+            background-color: #f53f3f;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background-color: #d93030;
+        }
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 100px);
+        }
+        .input-panel, .output-panel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        #inputContent {
+            flex: 1;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e6eb;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+        #inputContent:focus {
+            border-color: #4080ff;
+        }
+        .output-content {
+            flex: 1;
+            overflow-y: auto;
+            line-height: 1.8;
+            font-size: 15px;
+            white-space: pre;
+        }
+        /* 打印样式 */
+        @media print {
+            .header, .input-panel {
+                display: none !important;
+            }
+            .main {
+                grid-template-columns: 1fr !important;
+                height: auto !important;
+            }
+            .output-panel {
+                box-shadow: none !important;
+                border: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>排班表固定格式生成器【Tab分隔｜时间行不处理】</h1>
+        <button class="btn btn-primary" id="generateBtn">生成排班</button>
+        <button class="btn btn-success" id="copyBtn">一键复制文本</button>
+        <button class="btn btn-warning" id="printBtn">打印排班表</button>
+        <button class="btn btn-danger" id="clearBtn">清空全部</button>
+    </div>
+    <div class="main">
+        <div class="input-panel">
+            <div class="panel-title">📥 粘贴原始排班文本</div>
+            <textarea id="inputContent" placeholder="规则说明：
+1. 识别全部时间格式：08:00-16:00、08:00--20:00、08:00～20:00，包含时间区间的整行原样保留，不拆分
+2. 普通岗位行：岗位名称【Tab】姓名，多人自动拆分成单行
+3. 支持中文冒号、英文冒号
+4. 复制结果可直接粘贴Excel自动分列"></textarea>
+        </div>
+        <div class="output-panel">
+            <div class="panel-title">📤 输出结果（岗位 ↹ Tab ↹ 姓名）</div>
+            <div class="output-content" id="outputContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // 核心转换函数
+        function convertSchedule(rawText){
+            const lines = rawText.replace(/\r\n/g,"\n").split("\n");
+            let resultLines = [];
+            // 兼容：单横杠 - 、双横杠 -- 、波浪线 ～
+            const timeReg = /\d{1,2}:\d{2}[-～]{1,2}\d{1,2}:\d{2}/;
+
+            for(let line of lines){
+                const trimLine = line.trim();
+                if(trimLine === "") continue;
+
+                // 如果该行含有时间段文本，直接原样输出，不进行任何拆分
+                if(timeReg.test(trimLine)){
+                    resultLines.push(trimLine);
+                    continue;
+                }
+
+                // 统一中文冒号转为英文冒号
+                let normLine = trimLine.replace(/：/g,":");
+                const colonPos = normLine.indexOf(":");
+
+                // 无冒号 = 标题文本，原样输出
+                if(colonPos < 0){
+resultLines.push(trimLine);
+                    continue;
+                }
+
+                const postName = normLine.substring(0,colonPos).trim();
+                const nameText = normLine.substring(colonPos+1).trim();
+                // 分割人员，支持空格、中英文逗号、顿号
+                const nameList = nameText.split(/[，,\s、]+/).filter(n=>n.trim()!=='');
+
+                // 岗位 + Tab + 姓名
+                for(let name of nameList){
+                    resultLines.push(`${postName}\t${name.trim()}`);
+                }
+            }
+            return resultLines.join("\n");
+        }
+
+        function renderResult(text){
+            const container = document.getElementById("outputContent");
+            container.innerText = text;
+        }
+
+        // 复制文本
+        async function copyText(){
+            const text = document.getElementById("outputContent").innerText;
+            try{
+                await navigator.clipboard.writeText(text);
+                alert("复制成功！可直接粘贴Excel自动分列");
+            }catch(e){
+                alert("复制失败，请手动框选右侧文字复制");
+            }
+        }
+
+        document.getElementById("generateBtn").onclick = function(){
+            const input = document.getElementById("inputContent").value;
+            if(!input.trim()){
+                alert("请粘贴排班原始文本！");
+                return;
+            }
+            const out = convertSchedule(input);
+            renderResult(out);
+        };
+        document.getElementById("copyBtn").onclick = copyText;
+        document.getElementById("printBtn").onclick = ()=> window.print();
+        document.getElementById("clearBtn").onclick = function(){
+            document.getElementById("inputContent").value = "";
+            document.getElementById("outputContent").innerText = "";
+        }
+
+        // Ctrl+回车快速生成
+        document.getElementById("inputContent").addEventListener('keydown',e=>{
+            if(e.ctrlKey && e.key === 'Enter'){
+                document.getElementById("generateBtn").click();
+            }
+        })
+    </script>
+</body>
+</html>
+                
